@@ -280,7 +280,7 @@ function render(){
 function viewMeuEquip(){
   const jornada = state.data.jornada;
   if (state.data.jaEnviat){
-    const jugs = state.data.meuEquip.jugadores;
+    const jugs = ordenaPerPosicio(state.data.meuEquip.jugadores);
     const rows = jugs.map(j => `
       <div class="player-row">
         <div>
@@ -307,6 +307,12 @@ function viewMeuEquip(){
 
 /* ---------- VISTA: ESCOLLIR EQUIP ---------- */
 function contaPosicio(pos){ return state.seleccio.filter(j=>j.posicio===pos).length; }
+function contaEstrelles(pos){
+  return state.seleccio.filter(j => {
+    const info = infoJugadora(j.nom, j.equip);
+    return info && info.estrella && (!pos || j.posicio===pos);
+  }).length;
+}
 function jaTriada(nom, equip){ return state.seleccio.some(j=>j.nom===nom && j.equip===equip); }
 function infoJugadora(nom, equip){ return state.data.pool.find(p=>p.nom===nom && p.equip===equip); }
 
@@ -318,6 +324,7 @@ function toggleJugadora(nom, equip){
     const info = infoJugadora(nom, equip);
     if (state.seleccio.length >= 9) return;
     if (contaPosicio(info.posicio) >= 3) return;
+    if (info.estrella && (contaEstrelles() >= 3 || contaEstrelles(info.posicio) >= 2)) return;
     state.seleccio.push({ nom, equip, posicio: info.posicio });
   }
   render();
@@ -365,6 +372,9 @@ function viewEscollir(){
       <div class="row" style="font-size:12.5px; color:var(--text-dim); margin-top:2px;">
         <span>Bases: ${contaPosicio('B')}/3</span><span>Alers: ${contaPosicio('A')}/3</span><span>Pivots: ${contaPosicio('P')}/3</span>
       </div>
+      <div class="row" style="font-size:12.5px; color:var(--text-dim); margin-top:4px;">
+        <span>★ Estrelles: ${contaEstrelles()}/3</span>
+      </div>
       ${equipsFaltants.length ? `<div class="error-box" style="margin-top:10px;">Falten equips per cobrir: ${equipsFaltants.join(', ')}</div>` : ''}
       ${state.seleccio.length===9 ? capitanaPicker() : ''}
     </div>
@@ -381,8 +391,13 @@ function viewEscollir(){
   `;
 }
 
+const ORDRE_POSICIO = { B: 0, A: 1, P: 2 };
+function ordenaPerPosicio(jugs){
+  return jugs.slice().sort((a,b) => ORDRE_POSICIO[a.posicio] - ORDRE_POSICIO[b.posicio]);
+}
+
 function viewConfirmacio(){
-  const files = state.seleccio.slice().sort((a,b) => a.posicio.localeCompare(b.posicio));
+  const files = ordenaPerPosicio(state.seleccio);
   const rows = files.map(j => `
     <div class="player-row">
       <div>
@@ -406,7 +421,8 @@ function viewConfirmacio(){
 function filaJugadora(p){
   const triada = jaTriada(p.nom, p.equip);
   const posicioPlena = contaPosicio(p.posicio) >= 3;
-  const ple = !triada && (state.seleccio.length >= 9 || posicioPlena);
+  const estrellaBloquejada = p.estrella && !triada && (contaEstrelles() >= 3 || contaEstrelles(p.posicio) >= 2);
+  const ple = !triada && (state.seleccio.length >= 9 || posicioPlena || estrellaBloquejada);
   return `
     <div class="player-row">
       <div>
@@ -495,7 +511,7 @@ async function loadClassificacio(){
         <div class="card">
           <h2>Equips de la jornada ${resp.jornadaMostrada}</h2>
           ${usuaris.map(u => {
-            const jugs = resp.equipsUsuaris[u].slice().sort((a,b)=>a.posicio.localeCompare(b.posicio));
+            const jugs = ordenaPerPosicio(resp.equipsUsuaris[u]);
             const obert = state.equipUsuariObert === u;
             return `
               <button class="team-chip" style="margin-bottom:8px;" onclick="state.equipUsuariObert = state.equipUsuariObert==='${u}' ? null : '${u}'; render();">
