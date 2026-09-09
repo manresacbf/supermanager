@@ -220,6 +220,7 @@ let state = {
   subview: 'totes',  // 'totes' | 'equips'
   equipObert: null,  // quin dels 15 equips té obert a la subvista 'equips'
   confirmant: false, // si s'està mostrant la pantalla de resum previ a l'enviament
+  equipUsuariObert: null, // quin equip d'un altre usuari està desplegat a Classificació
 };
 
 async function apiGet(action, extra={}){
@@ -486,11 +487,40 @@ async function loadClassificacio(){
         <div class="rank-points">${Number(g.Punts_totals_acumulats||0).toFixed(1)}</div>
       </div>
     `).join('');
+
+    let equipsHtml = '';
+    if (resp.mostrarEquips && resp.equipsUsuaris){
+      const usuaris = Object.keys(resp.equipsUsuaris);
+      equipsHtml = `
+        <div class="card">
+          <h2>Equips de la jornada ${resp.jornadaMostrada}</h2>
+          ${usuaris.map(u => {
+            const jugs = resp.equipsUsuaris[u].slice().sort((a,b)=>a.posicio.localeCompare(b.posicio));
+            const obert = state.equipUsuariObert === u;
+            return `
+              <button class="team-chip" style="margin-bottom:8px;" onclick="state.equipUsuariObert = state.equipUsuariObert==='${u}' ? null : '${u}'; render();">
+                <span>${u}</span><span class="count">${obert ? 'amagar' : 'veure equip'}</span>
+              </button>
+              ${obert ? jugs.map(j => `
+                <div class="player-row">
+                  <div>
+                    <div class="player-name">${j.nom} ${j.capitana ? '<span class="pill">Capitana</span>' : ''}</div>
+                    <div class="player-meta">${j.equip} · ${posLabel(j.posicio)}</div>
+                  </div>
+                </div>
+              `).join('') : ''}
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
     document.getElementById('app').innerHTML = `
       <div class="card">
         <h2>Classificació general</h2>
         ${rows || '<div class="empty">Encara no hi ha punts registrats.</div>'}
       </div>
+      ${equipsHtml}
     `;
   } catch(err){
     document.getElementById('app').innerHTML = `<div class="card"><div class="error-box">No s'ha pogut carregar la classificació. ${err.message}</div></div>`;
