@@ -342,11 +342,11 @@ function viewEscollir(){
 
   let llistatHtml;
   if (state.subview === 'totes'){
-    llistatHtml = pool.map(p => filaJugadora(p)).join('');
+    llistatHtml = ordenaPerPosicio(pool).map(p => filaJugadora(p)).join('');
   } else {
     if (!state.equipOert && !state.equipObert) state.equipObert = null;
     if (state.equipObert){
-      const jugs = pool.filter(p=>p.equip===state.equipObert);
+      const jugs = ordenaPerPosicio(pool.filter(p=>p.equip===state.equipObert));
       llistatHtml = `
         <button class="btn-secondary" style="margin-bottom:10px;" onclick="state.equipObert=null; render();">‹ Tots els equips</button>
         ${jugs.map(p=>filaJugadora(p)).join('')}
