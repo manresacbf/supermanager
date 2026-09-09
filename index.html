@@ -219,6 +219,7 @@ let state = {
   capitana: null,
   subview: 'totes',  // 'totes' | 'equips'
   equipObert: null,  // quin dels 15 equips té obert a la subvista 'equips'
+  confirmant: false, // si s'està mostrant la pantalla de resum previ a l'enviament
 };
 
 async function apiGet(action, extra={}){
@@ -325,6 +326,9 @@ function viewEscollir(){
   if (state.data.jaEnviat){
     return `<div class="card"><div class="ok-box">Ja has enviat l'equip d'aquesta jornada. Consulta'l a "El meu equip".</div></div>`;
   }
+  if (state.confirmant){
+    return viewConfirmacio();
+  }
   const pool = state.data.pool;
   const equips = [...new Set(pool.map(p=>p.equip))];
 
@@ -372,7 +376,28 @@ function viewEscollir(){
       ${llistatHtml}
     </div>
 
-    <button class="btn-primary" id="btn-enviar" ${validEnviament() ? '' : 'disabled'}>Enviar equip</button>
+    <button class="btn-primary" id="btn-enviar" ${validEnviament() ? '' : 'disabled'}>Revisar i enviar</button>
+  `;
+}
+
+function viewConfirmacio(){
+  const files = state.seleccio.slice().sort((a,b) => a.posicio.localeCompare(b.posicio));
+  const rows = files.map(j => `
+    <div class="player-row">
+      <div>
+        <div class="player-name">${j.nom} ${j.nom===state.capitana ? '<span class="pill">Capitana</span>' : ''}</div>
+        <div class="player-meta">${j.equip} · ${posLabel(j.posicio)}</div>
+      </div>
+    </div>
+  `).join('');
+  return `
+    <div class="card">
+      <h2>Revisa el teu equip abans d'enviar</h2>
+      <p style="color:var(--text-dim); font-size:12.5px; margin:0 0 10px;">Un cop enviat no es podrà modificar. Jornada ${state.data.jornada}.</p>
+      ${rows}
+    </div>
+    <button class="btn-primary" id="btn-confirmar-enviar">Confirmar i enviar</button>
+    <button class="btn-secondary" style="width:100%; margin-top:8px; padding:12px;" onclick="state.confirmant=false; render();">‹ Tornar enrere i editar</button>
     <div id="enviar-missatge"></div>
   `;
 }
@@ -416,12 +441,14 @@ function validEnviament(){
 }
 
 function bindEscollir(){
-  const btn = document.getElementById('btn-enviar');
-  if (btn) btn.addEventListener('click', enviarEquip);
+  const btnRevisar = document.getElementById('btn-enviar');
+  if (btnRevisar) btnRevisar.addEventListener('click', () => { state.confirmant = true; render(); });
+  const btnConfirmar = document.getElementById('btn-confirmar-enviar');
+  if (btnConfirmar) btnConfirmar.addEventListener('click', enviarEquip);
 }
 
 async function enviarEquip(){
-  const btn = document.getElementById('btn-enviar');
+  const btn = document.getElementById('btn-confirmar-enviar');
   btn.disabled = true; btn.textContent = 'Enviant…';
   try{
     const resp = await apiPost({
@@ -433,15 +460,16 @@ async function enviarEquip(){
     if (resp.ok){
       msg.innerHTML = '<div class="ok-box">Equip enviat correctament!</div>';
       state.data.jaEnviat = true;
+      state.confirmant = false;
       state.view = 'meuequip';
       setTimeout(async () => { state.data = await apiGet('config', {u:USUARI_ACTUAL}); render(); }, 600);
     } else {
       msg.innerHTML = '<div class="error-box">' + resp.error + '</div>';
-      btn.disabled = false; btn.textContent = 'Enviar equip';
+      btn.disabled = false; btn.textContent = 'Confirmar i enviar';
     }
   } catch(err){
     document.getElementById('enviar-missatge').innerHTML = '<div class="error-box">Error de connexió: ' + err.message + '</div>';
-    btn.disabled = false; btn.textContent = 'Enviar equip';
+    btn.disabled = false; btn.textContent = 'Confirmar i enviar';
   }
 }
 
