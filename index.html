@@ -188,13 +188,17 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
     Classificació
   </button>
+  <button data-view="preguntes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Preguntes
+  </button>
 </nav>
 
 <script>
 /* =========== CONFIG =========== */
 const CONFIG = {
   // Enganxa aquí la "Web app URL" que et dona Apps Script en desplegar Code.gs
-  API_URL:'https://script.google.com/macros/s/AKfycbx3dCmYURb-69kqv5TcY1pHtAgRZBT2EETQt6UJ5T4Ua-Jw73gOOsNmNVxFfPJ2LVzo/exec',
+  API_URL: 'ENGANXA_AQUI_LA_URL_DE_APPS_SCRIPT',
 };
 
 const params = new URLSearchParams(location.search);
@@ -267,6 +271,7 @@ function render(){
   if (state.view === 'meuequip') app.innerHTML = viewMeuEquip();
   else if (state.view === 'escollir') { app.innerHTML = viewEscollir(); bindEscollir(); }
   else if (state.view === 'classificacio') { app.innerHTML = '<div class="loading">Carregant classificació…</div>'; loadClassificacio(); }
+  else if (state.view === 'preguntes') { app.innerHTML = viewPreguntes(); bindPreguntes(); }
 }
 
 /* ---------- VISTA: EL MEU EQUIP ---------- */
@@ -308,8 +313,9 @@ function toggleJugadora(nom, equip){
     state.seleccio = state.seleccio.filter(j=>!(j.nom===nom && j.equip===equip));
     if (state.capitana === nom) state.capitana = null;
   } else {
-    if (state.seleccio.length >= 9) return;
     const info = infoJugadora(nom, equip);
+    if (state.seleccio.length >= 9) return;
+    if (contaPosicio(info.posicio) >= 3) return;
     state.seleccio.push({ nom, equip, posicio: info.posicio });
   }
   render();
@@ -373,7 +379,8 @@ function viewEscollir(){
 
 function filaJugadora(p){
   const triada = jaTriada(p.nom, p.equip);
-  const ple = state.seleccio.length >= 9 && !triada;
+  const posicioPlena = contaPosicio(p.posicio) >= 3;
+  const ple = !triada && (state.seleccio.length >= 9 || posicioPlena);
   return `
     <div class="player-row">
       <div>
@@ -421,7 +428,6 @@ async function enviarEquip(){
       usuari: USUARI_ACTUAL,
       jugadors: state.seleccio,
       capitana: state.capitana,
-      respostes: {}, // les preguntes es poden afegir com a camps de text abans d'enviar si es vol
     });
     const msg = document.getElementById('enviar-missatge');
     if (resp.ok){
@@ -460,6 +466,71 @@ async function loadClassificacio(){
     `;
   } catch(err){
     document.getElementById('app').innerHTML = `<div class="card"><div class="error-box">No s'ha pogut carregar la classificació. ${err.message}</div></div>`;
+  }
+}
+
+/* ---------- VISTA: PREGUNTES ---------- */
+function campPregunta(id, label, valor, disabled){
+  return `
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12.5px; color:var(--text-dim); display:block; margin-bottom:5px;">${label}</label>
+      <input type="text" id="${id}" value="${valor ? String(valor).replace(/"/g,'&quot;') : ''}" ${disabled?'disabled':''} placeholder="La teva resposta" />
+    </div>
+  `;
+}
+
+function viewPreguntes(){
+  const p = state.data.preguntes || {};
+  const enviat = !!state.data.respostes;
+  const r = state.data.respostes || {};
+
+  if (!p.average && !p.p2 && !p.p3){
+    return `<div class="card"><div class="empty">Encara no hi ha preguntes publicades per a aquesta jornada.</div></div>`;
+  }
+
+  let camps = '';
+  camps += campPregunta('resp-average', 'Pregunta de l\'average: ' + p.average, r.average, enviat);
+  if (p.p2) camps += campPregunta('resp-p2', p.p2, r.p2, enviat);
+  if (p.p3) camps += campPregunta('resp-p3', p.p3, r.p3, enviat);
+
+  return `
+    <div class="card">
+      <div class="row"><h2>Preguntes · Jornada ${state.data.jornada}</h2>${enviat ? '<span class="pill ok">Enviades</span>' : '<span class="pill bad">Sense enviar</span>'}</div>
+      ${camps}
+      ${enviat
+        ? `<div class="ok-box">Respostes enviades. Per canviar-les, contacta l'organització.</div>`
+        : `<button class="btn-primary" id="btn-enviar-preguntes">Enviar respostes</button>`}
+      <div id="preguntes-missatge"></div>
+    </div>
+  `;
+}
+
+function bindPreguntes(){
+  const btn = document.getElementById('btn-enviar-preguntes');
+  if (btn) btn.addEventListener('click', enviarRespostes);
+}
+
+async function enviarRespostes(){
+  const btn = document.getElementById('btn-enviar-preguntes');
+  btn.disabled = true; btn.textContent = 'Enviant…';
+  const respostes = {
+    average: (document.getElementById('resp-average') || {}).value || '',
+    p2: (document.getElementById('resp-p2') || {}).value || '',
+    p3: (document.getElementById('resp-p3') || {}).value || '',
+  };
+  try{
+    const resp = await apiPost({ usuari: USUARI_ACTUAL, tipus: 'respostes', respostes });
+    const msg = document.getElementById('preguntes-missatge');
+    if (resp.ok){
+      state.data.respostes = respostes;
+      render();
+    } else {
+      msg.innerHTML = '<div class="error-box">' + resp.error + '</div>';
+      btn.disabled = false; btn.textContent = 'Enviar respostes';
+    }
+  } catch(err){
+    document.getElementById('preguntes-missatge').innerHTML = '<div class="error-box">Error de connexió: ' + err.message + '</div>';
+    btn.disabled = false; btn.textContent = 'Enviar respostes';
   }
 }
 
