@@ -4,8 +4,34 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Supermanager MCBF 26/27</title>
-<link rel="manifest" href="manifest.json" />
+<link rel="manifest" href="manifest.json" id="app-manifest" />
 <meta name="theme-color" content="#15151f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Supermanager" id="apple-title" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<script>
+/* Cada categoria ("?u=...") necessita el seu propi manifest, amb un
+   start_url que inclogui el paràmetre — si no, en afegir la pàgina a la
+   pantalla d'inici, el mòbil obre sempre l'URL arrel (sense "u") i l'app
+   no sap identificar la categoria. S'ha de triar ABANS que el navegador
+   llegeixi el manifest, per tant en un <script> síncron dins el <head>. */
+(function(){
+  var NORM = {
+    'u13':{slug:'u13', nom:'U13'}, 'u14':{slug:'u14', nom:'U14'},
+    'u15':{slug:'u15', nom:'U15'}, 'u16':{slug:'u16', nom:'U16'},
+    'u17sfb':{slug:'u17sfb', nom:'U17+SFB'}, 'u17+sfb':{slug:'u17sfb', nom:'U17+SFB'},
+    'u18de':{slug:'u18de', nom:'U18+DE'}, 'u18+de':{slug:'u18de', nom:'U18+DE'},
+    'lf2':{slug:'lf2', nom:'LF2'},
+  };
+  var u = new URLSearchParams(location.search).get('u');
+  var info = u ? NORM[u.toLowerCase()] : null;
+  if (info){
+    document.getElementById('app-manifest').setAttribute('href', 'manifest-' + info.slug + '.json');
+    document.getElementById('apple-title').setAttribute('content', 'SM ' + info.nom);
+  }
+})();
+</script>
 <style>
   :root{
     --bg: #15151f;
