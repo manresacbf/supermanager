@@ -31,20 +31,38 @@ let state = {
   equipUsuariObert: null, // quin equip d'un altre usuari està desplegat a Classificació
 };
 
+/* Apps Script sempre redirigeix /exec -> script.googleusercontent.com/macros/echo...
+   per servir la resposta real. En mode standalone (app instal·lada a la
+   pantalla d'inici d'iOS), fetch() falla sovint seguint aquesta redirecció
+   concreta ("The string did not match the expected pattern"), tot i que la
+   mateixa URL funciona bé en una pestanya normal de Safari. XMLHttpRequest
+   no té aquest problema, així que és el que fem servir aquí. */
+function xhrJson(method, url, body){
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    if (body != null) xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8'); // evita preflight CORS amb Apps Script
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300){
+        reject(new Error('Error del servidor (' + xhr.status + ').'));
+        return;
+      }
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch(e){ reject(new Error('Resposta no vàlida del servidor.')); }
+    };
+    xhr.onerror = () => reject(new Error('Error de connexió.'));
+    xhr.send(body != null ? body : null);
+  });
+}
+
 async function apiGet(action, extra={}){
   const u = new URL(CONFIG.API_URL);
   u.searchParams.set('action', action);
   Object.entries(extra).forEach(([k,v]) => u.searchParams.set(k,v));
-  const res = await fetch(u.toString());
-  return res.json();
+  return xhrJson('GET', u.toString());
 }
 async function apiPost(body){
-  const res = await fetch(CONFIG.API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS amb Apps Script
-    body: JSON.stringify(body),
-  });
-  return res.json();
+  return xhrJson('POST', CONFIG.API_URL, JSON.stringify(body));
 }
 
 function posLabel(p){ return {B:'Base', A:'Aler', P:'Pivot'}[p] || p; }
