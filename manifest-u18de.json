@@ -1,7 +1,8 @@
 {
   "name": "Supermanager U18+DE",
   "short_name": "SM U18+DE",
-  "start_url": "./?u=u18de",
+  "start_url": "./u18de.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#15151f",
   "theme_color": "#15151f",

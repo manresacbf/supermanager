@@ -1,7 +1,8 @@
 {
   "name": "Supermanager LF2",
   "short_name": "SM LF2",
-  "start_url": "./?u=LF2",
+  "start_url": "./lf2.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#15151f",
   "theme_color": "#15151f",

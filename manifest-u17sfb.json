@@ -1,7 +1,8 @@
 {
   "name": "Supermanager U17+SFB",
   "short_name": "SM U17+SFB",
-  "start_url": "./?u=u17sfb",
+  "start_url": "./u17sfb.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#15151f",
   "theme_color": "#15151f",

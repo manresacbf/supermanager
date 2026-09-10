@@ -1,7 +1,8 @@
 {
   "name": "Supermanager U16",
   "short_name": "SM U16",
-  "start_url": "./?u=U16",
+  "start_url": "./u16.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#15151f",
   "theme_color": "#15151f",

@@ -3,37 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Supermanager MCBF 26/27</title>
-<link rel="manifest" href="manifest.json" id="app-manifest" />
+<title>Supermanager U14</title>
+<link rel="manifest" href="manifest-u14.json" />
 <meta name="theme-color" content="#15151f" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Supermanager" id="apple-title" />
+<meta name="apple-mobile-web-app-title" content="SM U14" />
 <link rel="apple-touch-icon" href="icon-192.png" />
-<script>
-/* NOTA: aquesta pàgina (index.html) és per a ús directe al navegador amb
-   ?u=... — per instal·lar-la a la pantalla d'inici del mòbil, fes servir
-   la pàgina pròpia de cada categoria (u13.html, u14.html, lf2.html...),
-   que té el manifest correcte ja escrit a l'HTML i no depèn de cap script
-   ni del paràmetre d'URL (iOS no sempre respecta un manifest canviat per
-   JavaScript quan s'afegeix a la pantalla d'inici). Aquest script només
-   millora l'experiència si algú fa servir index.html?u=... directament. */
-(function(){
-  var NORM = {
-    'u13':{slug:'u13', nom:'U13'}, 'u14':{slug:'u14', nom:'U14'},
-    'u15':{slug:'u15', nom:'U15'}, 'u16':{slug:'u16', nom:'U16'},
-    'u17sfb':{slug:'u17sfb', nom:'U17+SFB'}, 'u17+sfb':{slug:'u17sfb', nom:'U17+SFB'},
-    'u18de':{slug:'u18de', nom:'U18+DE'}, 'u18+de':{slug:'u18de', nom:'U18+DE'},
-    'lf2':{slug:'lf2', nom:'LF2'},
-  };
-  var u = new URLSearchParams(location.search).get('u');
-  var info = u ? NORM[u.toLowerCase()] : null;
-  if (info){
-    document.getElementById('app-manifest').setAttribute('href', 'manifest-' + info.slug + '.json');
-    document.getElementById('apple-title').setAttribute('content', 'SM ' + info.nom);
-  }
-})();
-</script>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -69,6 +45,7 @@
   </button>
 </nav>
 
+<script>window.CATEGORIA_FIXA = 'U14';</script>
 <script src="app.js"></script>
 </body>
 </html>
