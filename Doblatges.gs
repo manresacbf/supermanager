@@ -359,8 +359,11 @@ function sd_reparaCalculPuntuacio_() {
   const sh = sd_full_('Calcul_puntuacio');
   const shEq = sd_full_('Equips_usuari');
 
-  // Prou files per a tot el que hi ha a `Equips_usuari`, i com a mínim les 600 d'abans.
-  const files = Math.max(600, shEq.getLastRow() - 1);
+  // Prou files per a tot el que hi ha a `Equips_usuari`. El mínim de 2000 cobreix una
+  // temporada sencera (63 files per jornada: 7 participants x 9 jugadores); amb les 600
+  // d'abans les fórmules s'haurien acabat cap a la jornada 10, i la classificació
+  // s'hauria quedat encallada sense avisar.
+  const files = Math.max(2000, shEq.getLastRow() - 1);
   if (sh.getMaxRows() < files + 1) sh.insertRowsAfter(sh.getMaxRows(), files + 1 - sh.getMaxRows());
 
   const fila = [[

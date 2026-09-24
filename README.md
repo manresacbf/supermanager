@@ -89,6 +89,42 @@ escrits a mà. Revisa-ho abans d'executar-ho.
 Es fa amb `setFormulas()`, que sempre fa servir la sintaxi amb comes independentment
 de l'idioma del full: així no cal decidir si toca escriure `,` o `;`.
 
+## Rutina de cada jornada
+
+**Abans que les participants triïn equip**
+
+1. **`Jornades`** — afegeix-hi una fila nova: el número de jornada, `si`/`no` a cada
+   `Actiu_...` segons qui juga, les preguntes i, si ja les saps, les respostes correctes.
+   Aquesta fila és el que «obre» la jornada: l'app i l'script sempre treballen amb el
+   número més alt que hi hagi aquí.
+2. **`Doblatges`** — una fila per cada jugadora que dobla: jornada, nom, equip d'origen,
+   equip on dobla i posició. Sempre **després** del pas 1.
+3. **Menú `Supermanager → Sincronitzar doblatges`** — obligatori si aquella jornada no hi
+   ha cap doblatge (l'`onEdit` no s'hauria disparat mai). Si n'hi ha, ja s'haurà fet sol,
+   però tornar-hi no fa cap mal.
+4. **`Partits`** — afegeix una fila per cada equip que juga, amb la jornada i l'equip.
+   El resultat es posa més tard; la columna `Clau` és una fórmula, arrossega-la avall.
+5. Avisa les participants. Cadascuna entra a la seva pàgina, tria 9 jugadores, marca
+   capitana i respon les preguntes.
+
+**Un cop jugats els partits**
+
+6. **`Partits`** — escriu `V` o `D` a cada equip.
+7. **`Resultats_jugadores`** — punts i faltes de cada jugadora. Ara hi ha **una fila per
+   partit**: qui dobla en té dues i les distingeixes per la columna `Equip`. Si te'n deixes
+   alguna buida, aquella jugadora puntua 0.
+8. **`Respostes_usuari`** — posa a mà la columna `Punts_preguntes` (5 o 20 segons la
+   normativa).
+9. Mira **`Classificacio`** i **`Classificacio_global`**: es calculen soles.
+
+**Manteniment (rarament)**
+
+- `Classificacio` només té files preparades fins a la jornada 10. A partir d'aquí, copia
+  les 7 últimes files cap avall i canvia'ls el número de jornada.
+- Si algun dia la classificació es queda encallada, executa
+  `Supermanager → Reparar fórmules de puntuació`: torna a escriure `Calcul_puntuacio` amb
+  prou files per a tot el que hi hagi a `Equips_usuari`.
+
 ### Nota sobre els noms dels equips
 
 No és cap error que `Classificacio` i `Classificacio_global` facin servir `U17+SFB` i
