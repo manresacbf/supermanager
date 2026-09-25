@@ -41,7 +41,8 @@ que ja tingui punts o faltes escrits.
 ### Instal·lació
 
 1. Sheet → Extensions → Apps Script → Fitxers → **+** → Script, de nom `Doblatges`.
-   Enganxa-hi `Doblatges.gs`.
+   Enganxa-hi `Doblatges.gs`. Repeteix-ho amb un segon fitxer `Entrada` per a `Entrada.gs`
+   (`Entrada.gs` fa servir les funcions auxiliars de `Doblatges.gs`, han d'anar juntes).
 2. A `Code.gs`, dins de `poolJugadores_()`, afegeix una línia just després de
    `const jugadores = sheetRows_(SH.JUGADORES)`:
 
@@ -89,6 +90,26 @@ escrits a mà. Revisa-ho abans d'executar-ho.
 Es fa amb `setFormulas()`, que sempre fa servir la sintaxi amb comes independentment
 de l'idioma del full: així no cal decidir si toca escriure `,` o `;`.
 
+## Entrada de resultats — `Entrada.gs`
+
+`Resultats_jugadores` és una bona base de dades i una mala pantalla d'entrada: 87 files i
+174 caselles, sense ordre, amb les dels doblatges enganxades al final. Però cada jornada
+**només hi ha una vintena de jugadores que hagi triat algú**; la resta no les mira ningú.
+
+`Entrada_resultats` és la llista curta. Es genera cada jornada amb només les jugadores
+triades, agrupades per equip i en ordre B/A/P, amb les marques que l'equip que entra les
+dades ja feia servir al seu full (`★` per estrella, `dobla de U16` per als doblatges) i
+una columna que diu qui l'ha triat. Dues columnes per omplir: `PUNTS` i `FALTES`.
+
+Sobre les dades de la jornada 1: **28 jugadores → 56 caselles**, en comptes de 174.
+
+- `Supermanager → Preparar entrada de resultats` la genera. Les caselles surten amb el que
+  ja hi hagi desat, o sigui que es pot repassar i corregir tantes vegades com calgui.
+- `Supermanager → Desar resultats entrats` ho bolca a `Resultats_jugadores`, creant la
+  fila si no hi era. Una jugadora que es deixa en blanc no es toca.
+
+Les dues columnes per omplir surten amb fons groc; la resta és informació.
+
 ## Rutina de cada jornada
 
 **Abans que les participants triïn equip**
@@ -110,9 +131,9 @@ de l'idioma del full: així no cal decidir si toca escriure `,` o `;`.
 **Un cop jugats els partits**
 
 6. **`Partits`** — escriu `V` o `D` a cada equip.
-7. **`Resultats_jugadores`** — punts i faltes de cada jugadora. Ara hi ha **una fila per
-   partit**: qui dobla en té dues i les distingeixes per la columna `Equip`. Si te'n deixes
-   alguna buida, aquella jugadora puntua 0.
+7. **Menú `Supermanager → Preparar entrada de resultats`**, omplir `PUNTS` i `FALTES` a la
+   pestanya `Entrada_resultats`, i **`Supermanager → Desar resultats entrats`**.
+   Només hi surten les jugadores que ha triat algú, per equip i en ordre B/A/P.
 8. **`Respostes_usuari`** — posa a mà la columna `Punts_preguntes` (5 o 20 segons la
    normativa).
 9. Mira **`Classificacio`** i **`Classificacio_global`**: es calculen soles.
@@ -124,6 +145,43 @@ de l'idioma del full: així no cal decidir si toca escriure `,` o `;`.
 - Si algun dia la classificació es queda encallada, executa
   `Supermanager → Reparar fórmules de puntuació`: torna a escriure `Calcul_puntuacio` amb
   prou files per a tot el que hi hagi a `Equips_usuari`.
+
+## Migració de les jornades 1-3
+
+Les tres primeres jornades es van portar a mà, en un full a part (`Equips i Classificació`).
+Menú **`Supermanager → Migrar jornades 1-3 del full antic`**.
+
+D'aquelles jornades només en tenim el total de cada participant: la pestanya
+`EQUIPS JORNADA` d'aquell full **es reescriu cada setmana**, de manera que el detall de la
+J2 i la J3 ja no existeix. La J1 no en té: va ser un qüestionari de 10 preguntes, sense
+jugadores.
+
+Per això els totals van a una columna pròpia, **`Punts_migrats`**, i no a `Punts_equip`:
+les fórmules segueixen vives, i el dia que aparegui el detall només cal esborrar la casella
+migrada perquè el càlcul torni a manar. `Punts_totals` passa a ser
+`=N($C)+N($D)+N($F)`.
+
+|  | U13 | U14 | U15 | U16 | U17+SFB | U18+DE | LF2 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| J1 (preguntes) | 15 | 15 | 15 | 10 | 10 | 20 | 5 |
+| J2 | 87,6 | 105,6 | 78,6 | 81,4 | 76,0 | 145,4 | 106,0 |
+| J3 | 88,6 | 81,2 | 86,6 | 90,0 | 100,2 | 108,8 | 101,2 |
+| **Total** | **191,2** | **201,8** | **180,2** | **181,4** | **186,2** | **274,2** | **212,2** |
+
+### La jornada 1 del nostre full era una ronda de proves
+
+Les 63 tries desades com a jornada 1 són del 23 i 24/09/2026: la gent provant l'app, no una
+jornada de debò. Si es deixessin, la J1 sumaria els 15 punts del qüestionari **més** uns 87
+punts que no van existir. Per això la migració, a més d'escriure els totals:
+
+- esborra les files de jornada 1 de `Equips_usuari` i `Respostes_usuari`,
+- buida els punts i faltes de jornada 1 de `Resultats_jugadores` (les files es queden, ja
+  les regenera la sincronització),
+- i torna a posar la fórmula a `Punts_equip` i `Punts_preguntes` de les files migrades, que
+  a la J1 tenien els punts del qüestionari escrits a mà. Sense això es comptarien dos cops.
+
+La competició de debò continua, doncs, a la **jornada 4**: és la que s'ha d'afegir a
+`Jornades` quan toqui.
 
 ### Nota sobre els noms dels equips
 
@@ -140,7 +198,8 @@ dos: `Usuari` = `U17+SFB`, `Equip_jugadora` = `U17`.
   perquè iOS no conserva el `?u=...` en instal·lar a la pantalla d'inici).
 - `manifest-*.json` — un manifest per categoria.
 - `Code.gs` — còpia **desfasada** del backend (vegeu l'avís de més amunt).
-- `Doblatges.gs` — sincronització dels doblatges i reparació de les fórmules de puntuació.
+- `Doblatges.gs` — sincronització dels doblatges, reparació de fórmules i migració de J1-J3.
+- `Entrada.gs` — la pestanya `Entrada_resultats`, la llista curta per entrar punts i faltes.
 - `Supermanager MCBF 26-27 Dades.xlsx` — instantània del full baixada el 24/09/2026.
   És només una còpia de consulta. El full de debò és el Google Sheet, i **aquest .xlsx no
   s'hi ha de tornar a pujar mai a sobre**: es perdrien l'Apps Script i les fórmules.

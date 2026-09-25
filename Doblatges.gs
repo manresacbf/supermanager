@@ -63,8 +63,12 @@ function onEdit(e) {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Supermanager')
+    .addItem('Preparar entrada de resultats', 'preparaEntradaResultatsAmbAvis')
+    .addItem('Desar resultats entrats', 'desaResultatsEntratsAmbAvis')
+    .addSeparator()
     .addItem('Sincronitzar doblatges', 'sincronitzaDoblatgesAmbAvis')
     .addItem('Reparar fórmules de puntuació', 'reparaFormulesAmbAvis')
+    .addItem('Migrar jornades 1-3 del full antic', 'migraHistoricAmbAvis')
     .addToUi();
 }
 
@@ -388,6 +392,16 @@ function sd_reparaCalculPuntuacio_() {
   return files;
 }
 
+function sd_formulaPuntsEquip_(fila) {
+  return '=SUMIFS(Calcul_puntuacio!$M:$M,Calcul_puntuacio!$A:$A,$A' + fila +
+    ',Calcul_puntuacio!$B:$B,$B' + fila + ')';
+}
+
+function sd_formulaPuntsPreguntes_(fila) {
+  return '=SUMIFS(Respostes_usuari!$F:$F,Respostes_usuari!$A:$A,$A' + fila +
+    ',Respostes_usuari!$B:$B,$B' + fila + ')';
+}
+
 /** Torna a posar les fórmules de `Classificacio` C:D on hi hagi un valor escrit a mà. */
 function sd_reparaClassificacio_() {
   const sh = sd_full_('Classificacio');
@@ -402,16 +416,156 @@ function sd_reparaClassificacio_() {
     if (sd_buit_(u[0]) || sd_buit_(u[1])) return;
     const r = i + 2;
     if (!formules[i][0]) {
-      sh.getRange(r, 3).setFormula(
-        '=SUMIFS(Calcul_puntuacio!$M:$M,Calcul_puntuacio!$A:$A,$A' + r + ',Calcul_puntuacio!$B:$B,$B' + r + ')');
+      sh.getRange(r, 3).setFormula(sd_formulaPuntsEquip_(r));
       recuperades++;
     }
     if (!formules[i][1]) {
-      sh.getRange(r, 4).setFormula(
-        '=SUMIFS(Respostes_usuari!$F:$F,Respostes_usuari!$A:$A,$A' + r + ',Respostes_usuari!$B:$B,$B' + r + ')');
+      sh.getRange(r, 4).setFormula(sd_formulaPuntsPreguntes_(r));
       recuperades++;
     }
   });
 
   return recuperades;
+}
+
+/** ---------- MIGRACIÓ DE LES JORNADES 1-3 ---------- */
+
+/**
+ * El supermanager es va portar a mà les tres primeres jornades, en un full a part
+ * (`Equips i Classificació`). D'aquelles jornades només en tenim el total de cada
+ * participant: la pestanya `EQUIPS JORNADA` d'aquell full es reescriu cada setmana i el
+ * detall de la J2 i la J3 ja no hi és. La J1 no en té, de detall: va ser un qüestionari
+ * de 10 preguntes, sense jugadores.
+ *
+ * Per això els totals van a una columna pròpia, `Punts_migrats`, i no a `Punts_equip`:
+ * així les fórmules segueixen vives i el dia que aparegui el detall només cal esborrar
+ * la casella migrada perquè el càlcul torni a manar.
+ *
+ * Alhora esborra la ronda de proves que hi ha desada com a jornada 1 (les tries del 23 i
+ * 24/09 fetes per provar l'app). Si no, la J1 sumaria els punts del qüestionari més els
+ * d'una ronda que no va existir.
+ */
+const SD_HISTORIC = {
+  usuaris: ['U13', 'U14', 'U15', 'U16', 'U17+SFB', 'U18+DE', 'LF2'],
+  //          U13     U14      U15     U16     U17+SFB  U18+DE   LF2
+  1: /* qüestionari */ [15, 15, 15, 10, 10, 20, 5],
+  2: [87.6, 105.6, 78.6, 81.4, 76.0, 145.4, 106.0],
+  3: [88.6, 81.2, 86.6, 90.0, 100.2, 108.8, 101.2],
+};
+
+function migraHistoricAmbAvis() {
+  const ui = SpreadsheetApp.getUi();
+  const resposta = ui.alert(
+    'Migrar les jornades 1, 2 i 3',
+    'Això farà dues coses:\n\n' +
+    '1. Escriurà els totals de les jornades 1, 2 i 3 del full antic a una columna nova ' +
+    '"Punts_migrats" de Classificacio, i els sumarà als punts totals.\n\n' +
+    '2. Esborrarà la ronda de proves desada com a jornada 1 (les tries fetes per provar ' +
+    'l\'app): equips enviats, respostes i els punts i faltes de la jornada 1.\n\n' +
+    'El full de dades no es pot desfer des d\'aquí, però Drive en guarda l\'historial de ' +
+    'versions. Vols continuar?',
+    ui.ButtonSet.YES_NO);
+  if (resposta !== ui.Button.YES) return;
+
+  const r = migraHistoric();
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    r.migrats + ' totals migrats. Ronda de proves esborrada: ' +
+    r.esborrats.equips + ' tries, ' + r.esborrats.respostes + ' respostes, ' +
+    r.esborrats.resultats + ' resultats.',
+    'Supermanager', 8);
+}
+
+function migraHistoric() {
+  const esborrats = sd_esborraRondaDeProves_(1);
+  const migrats = sd_escriuHistoric_();
+  return { migrats: migrats, esborrats: esborrats };
+}
+
+/** Escriu els totals històrics a `Classificacio.Punts_migrats` i els suma al total. */
+function sd_escriuHistoric_() {
+  const sh = sd_full_('Classificacio');
+  const cap = sd_capcalera_(sh);
+  const iJor = sd_exigeixColumna_(cap, 'Jornada', 'Classificacio');
+  const iUsuari = sd_exigeixColumna_(cap, 'Usuari', 'Classificacio');
+  const iTotals = sd_exigeixColumna_(cap, 'Punts_totals', 'Classificacio');
+  const iMigrats = sd_asseguraColumna_(sh, cap, 'Punts_migrats');
+  const nCols = cap.length;
+
+  const valors = sd_valors_(sh, nCols);
+  let escrits = 0;
+
+  valors.forEach((f, i) => {
+    const jornada = Number(f[iJor]);
+    const taula = SD_HISTORIC[jornada];
+    if (!taula) return;
+    const pos = SD_HISTORIC.usuaris.indexOf(String(f[iUsuari] || '').trim());
+    if (pos === -1) return;
+    const fila = i + 2;
+    sh.getRange(fila, iMigrats + 1).setValue(taula[pos]);
+
+    // Els punts de la jornada 1 estaven escrits a mà a `Punts_equip`. Ara que són a
+    // `Punts_migrats`, allà hi ha de tornar a manar la fórmula: si no, es comptarien dos
+    // cops. Un cop esborrada la ronda de proves, la fórmula donarà 0, que és el correcte.
+    sh.getRange(fila, cap.indexOf('Punts_equip') + 1).setFormula(sd_formulaPuntsEquip_(fila));
+    sh.getRange(fila, cap.indexOf('Punts_preguntes') + 1).setFormula(sd_formulaPuntsPreguntes_(fila));
+
+    sh.getRange(fila, iTotals + 1).setFormula(
+      '=N($' + sd_lletra_(cap.indexOf('Punts_equip')) + fila + ')' +
+      '+N($' + sd_lletra_(cap.indexOf('Punts_preguntes')) + fila + ')' +
+      '+N($' + sd_lletra_(iMigrats) + fila + ')');
+    escrits++;
+  });
+
+  return escrits;
+}
+
+/** Índex 0-based -> lletra de columna ("A", "B", … "AA"). */
+function sd_lletra_(i) {
+  let n = i + 1, s = '';
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+/** Treu d'una jornada les tries, les respostes i els punts entrats. */
+function sd_esborraRondaDeProves_(jornada) {
+  const equips = sd_esborraFilesDe_('Equips_usuari', jornada);
+  const respostes = sd_esborraFilesDe_('Respostes_usuari', jornada);
+
+  // De `Resultats_jugadores` no n'esborrem les files: les regenera la sincronització.
+  // N'hi ha prou amb buidar els punts i les faltes.
+  const sh = sd_full_(SD.RESULTATS);
+  const cap = sd_capcalera_(sh);
+  const iJor = sd_exigeixColumna_(cap, 'Jornada', SD.RESULTATS);
+  const iPunts = sd_exigeixColumna_(cap, 'Punts', SD.RESULTATS);
+  const iFaltes = sd_exigeixColumna_(cap, 'Faltes', SD.RESULTATS);
+  const valors = sd_valors_(sh, cap.length);
+  let resultats = 0;
+  valors.forEach(f => {
+    if (Number(f[iJor]) !== Number(jornada)) return;
+    if (sd_buit_(f[iPunts]) && sd_buit_(f[iFaltes])) return;
+    f[iPunts] = '';
+    f[iFaltes] = '';
+    resultats++;
+  });
+  if (valors.length) sh.getRange(2, 1, valors.length, cap.length).setValues(valors);
+
+  return { equips: equips, respostes: respostes, resultats: resultats };
+}
+
+function sd_esborraFilesDe_(nomFull, jornada) {
+  const sh = sd_full_(nomFull);
+  const cap = sd_capcalera_(sh);
+  const iJor = sd_exigeixColumna_(cap, 'Jornada', nomFull);
+  const valors = sd_valors_(sh, cap.length);
+  let n = 0;
+  for (let i = valors.length - 1; i >= 0; i--) {
+    if (Number(valors[i][iJor]) !== Number(jornada)) continue;
+    sh.deleteRow(i + 2);
+    n++;
+  }
+  return n;
 }
