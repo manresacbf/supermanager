@@ -153,8 +153,16 @@ Una fila per jugadora: `Jornada`, `Nom`, `Equip_origen`, `Equip_dobla` i `Posici
 En acabar d'escriure es generen soles les files a `Jugadores` i a `Resultats_jugadores`,
 i desapareixen les de la jornada anterior.
 
-**3. Si aquesta jornada no dobla ningú** → menú `Supermanager → Sincronitzar doblatges`.
-Només cal en aquest cas: si no toques `Doblatges`, l'`onEdit` no s'ha disparat mai.
+**3. Menú `Supermanager → Sincronitzar doblatges`** — sempre, hagis tocat `Doblatges` o no.
+
+Es pot executar tantes vegades com es vulgui: si ja estava fet, no canvia res. Val més
+passar-hi sempre que recordar quan cal, perquè l'automatisme té dos forats:
+
+- Si aquesta jornada **no dobla ningú**, no toques la pestanya i l'`onEdit` no salta mai.
+- Els triggers simples d'Apps Script només reaccionen a canvis de **valor**: si esborres
+  una fila sencera (botó dret → Suprimeix fila) tampoc no salta, i la fila generada d'aquell
+  doblatge es queda a `Jugadores` com si encara valgués. Esborrar-ne el contingut amb Supr
+  sí que compta com a canvi de valor.
 
 **4. Comprova `Jugadores`.** Al final hi ha d'haver les files amb `Origen` = `dobla (...)`
 d'aquesta jornada, i cap de l'anterior. Si hi veus les velles, torna al pas 3.

@@ -59,7 +59,12 @@ function onEdit(e) {
   }
 }
 
-/** Menú manual, per si vols forçar la sincronització sense editar res. */
+/**
+ * Menú manual. Convé passar-hi sempre en obrir una jornada, encara que s'hagin escrit
+ * els doblatges a mà: l'`onEdit` no salta si aquella jornada no dobla ningú (no es toca
+ * la pestanya) ni quan s'esborra una fila sencera, perquè els triggers simples només
+ * reaccionen a canvis de valor. La sincronització es pot repetir sense conseqüències.
+ */
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Supermanager')
