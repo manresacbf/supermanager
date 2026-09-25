@@ -325,6 +325,48 @@ function sd_sincronitzaResultats_(jornada) {
   }
 }
 
+/** ---------- SINTAXI DE LES FÓRMULES ---------- */
+
+/**
+ * Google Sheets fa servir "," o ";" per separar els arguments d'una fórmula segons
+ * l'idioma del full, i el punt o la coma per als decimals. `setFormula()` NO ho
+ * tradueix: si hi escrius la sintaxi que no toca, la casella queda amb #ERROR!.
+ *
+ * En comptes de suposar-ho, ho preguntem al full: hi escrivim `=SUM(1,2)` en una
+ * casella de recanvi i mirem si en surt 3.
+ */
+let SD_SEPARADOR = null;
+
+function sd_separador_() {
+  if (SD_SEPARADOR) return SD_SEPARADOR;
+  const sh = sd_full_('Classificacio');
+  const cel = sh.getRange(sh.getMaxRows(), sh.getMaxColumns());
+  const abans = cel.getFormula() || cel.getValue();
+  try {
+    cel.setFormula('=SUM(1,2)');
+    SpreadsheetApp.flush();
+    SD_SEPARADOR = Number(cel.getValue()) === 3 ? ',' : ';';
+  } finally {
+    cel.clearContent();
+    if (abans !== '' && abans !== null && abans !== undefined) cel.setValue(abans);
+  }
+  return SD_SEPARADOR;
+}
+
+/**
+ * Passa una fórmula escrita en sintaxi anglesa (comes) a la que entén aquest full.
+ * En un full de punt i coma no només canvien els separadors: el 1.2 s'hi escriu 1,2.
+ * Per això es fa en una sola passada, on cada tros trobat és o bé un número decimal
+ * o bé una coma de separar arguments, i no hi ha manera de confondre'ls.
+ */
+function sd_f_(formula) {
+  if (sd_separador_() === ',') return formula;
+  return String(formula).replace(/\d+\.\d+|,/g, function (tros) {
+    return tros === ',' ? ';' : tros.replace('.', ',');
+  });
+}
+
+
 /** ---------- REPARACIÓ DE `Calcul_puntuacio` ---------- */
 
 /**
@@ -341,9 +383,9 @@ function sd_sincronitzaResultats_(jornada) {
  * També torna a posar les fórmules de `Classificacio` C:D allà on hi hagi un número
  * escrit a mà. La pestanya és calculada i no s'hi ha d'escriure res a sobre.
  *
- * Es fa servir `setFormulas()`, que sempre fa servir la sintaxi amb comes
- * independentment de l'idioma del full: així no cal preocupar-se de si aquí toca
- * escriure "," o ";".
+ * Les fórmules passen per `sd_f_()`, que les adapta a la sintaxi que vol aquest full
+ * (comes o punt i coma per separar arguments). `setFormula()` NO ho tradueix sol: si
+ * hi escrius la sintaxi que no toca, la casella queda amb #ERROR!.
  */
 function reparaFormules() {
   const calcul = sd_reparaCalculPuntuacio_();
@@ -387,22 +429,26 @@ function sd_reparaCalculPuntuacio_() {
   ]];
 
   const origen = sh.getRange(2, 1, 1, 13);
-  origen.setFormulas(fila);
+  origen.setFormulas([fila[0].map(sd_f_)]);
   if (files > 1) origen.copyTo(sh.getRange(3, 1, files - 1, 13));
   return files;
 }
 
 function sd_formulaPuntsEquip_(fila) {
-  return '=SUMIFS(Calcul_puntuacio!$M:$M,Calcul_puntuacio!$A:$A,$A' + fila +
-    ',Calcul_puntuacio!$B:$B,$B' + fila + ')';
+  return sd_f_('=SUMIFS(Calcul_puntuacio!$M:$M,Calcul_puntuacio!$A:$A,$A' + fila +
+    ',Calcul_puntuacio!$B:$B,$B' + fila + ')');
 }
 
 function sd_formulaPuntsPreguntes_(fila) {
-  return '=SUMIFS(Respostes_usuari!$F:$F,Respostes_usuari!$A:$A,$A' + fila +
-    ',Respostes_usuari!$B:$B,$B' + fila + ')';
+  return sd_f_('=SUMIFS(Respostes_usuari!$F:$F,Respostes_usuari!$A:$A,$A' + fila +
+    ',Respostes_usuari!$B:$B,$B' + fila + ')');
 }
 
-/** Torna a posar les fórmules de `Classificacio` C:D on hi hagi un valor escrit a mà. */
+/**
+ * Torna a posar les fórmules de `Classificacio` C:D on hi hagi un valor escrit a mà
+ * o una casella en error. L'error hi pot ser perquè una versió anterior d'aquest
+ * script hi va escriure fórmules amb comes en un full que les vol amb punt i coma.
+ */
 function sd_reparaClassificacio_() {
   const sh = sd_full_('Classificacio');
   const ultima = sh.getLastRow();
@@ -410,16 +456,18 @@ function sd_reparaClassificacio_() {
 
   const usuaris = sh.getRange(2, 1, ultima - 1, 2).getValues();
   const formules = sh.getRange(2, 3, ultima - 1, 2).getFormulas();
+  const valors = sh.getRange(2, 3, ultima - 1, 2).getValues();
+  const trencada = (i, c) => !formules[i][c] || String(valors[i][c]).charAt(0) === '#';
   let recuperades = 0;
 
   usuaris.forEach((u, i) => {
     if (sd_buit_(u[0]) || sd_buit_(u[1])) return;
     const r = i + 2;
-    if (!formules[i][0]) {
+    if (trencada(i, 0)) {
       sh.getRange(r, 3).setFormula(sd_formulaPuntsEquip_(r));
       recuperades++;
     }
-    if (!formules[i][1]) {
+    if (trencada(i, 1)) {
       sh.getRange(r, 4).setFormula(sd_formulaPuntsPreguntes_(r));
       recuperades++;
     }
@@ -509,10 +557,10 @@ function sd_escriuHistoric_() {
     sh.getRange(fila, cap.indexOf('Punts_equip') + 1).setFormula(sd_formulaPuntsEquip_(fila));
     sh.getRange(fila, cap.indexOf('Punts_preguntes') + 1).setFormula(sd_formulaPuntsPreguntes_(fila));
 
-    sh.getRange(fila, iTotals + 1).setFormula(
+    sh.getRange(fila, iTotals + 1).setFormula(sd_f_(
       '=N($' + sd_lletra_(cap.indexOf('Punts_equip')) + fila + ')' +
       '+N($' + sd_lletra_(cap.indexOf('Punts_preguntes')) + fila + ')' +
-      '+N($' + sd_lletra_(iMigrats) + fila + ')');
+      '+N($' + sd_lletra_(iMigrats) + fila + ')'));
     escrits++;
   });
 

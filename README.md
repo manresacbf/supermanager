@@ -87,8 +87,18 @@ ara al full, els punts d'equip passarien a ser U18+DE 87,6 · LF2 85,2 · U14 84
 U15 73,2 · U13 66,0 · U17+SFB 44,4 · U16 21,6, molt lluny dels 15/15/15/10/10/20
 escrits a mà. Revisa-ho abans d'executar-ho.
 
-Es fa amb `setFormulas()`, que sempre fa servir la sintaxi amb comes independentment
-de l'idioma del full: així no cal decidir si toca escriure `,` o `;`.
+### La sintaxi de les fórmules depèn de l'idioma del full
+
+Google Sheets separa els arguments d'una fórmula amb `,` o amb `;` segons l'idioma, i els
+decimals amb `.` o amb `,`. **`setFormula()` no ho tradueix.** Una primera versió d'aquest
+script hi va escriure fórmules amb comes en un full que les vol amb punt i coma, i les 21
+files que va tocar la migració van quedar amb `#ERROR!` (que a Sheets vol dir, precisament,
+error de sintaxi).
+
+Ara `sd_separador_()` ho pregunta al full abans d'escriure-hi res: hi posa `=SUM(1,2)` en
+una casella de recanvi i mira si en surt 3. Després `sd_f_()` adapta cada fórmula, decimals
+inclosos (`1.2` → `1,2`). I `Reparar fórmules de puntuació` ja no es limita a les caselles
+sense fórmula: també reescriu les que han quedat en error.
 
 ## Entrada de resultats — `Entrada.gs`
 
@@ -112,39 +122,93 @@ Les dues columnes per omplir surten amb fons groc; la resta és informació.
 
 ## Rutina de cada jornada
 
-**Abans que les participants triïn equip**
+Escrita pas a pas per a la jornada 4, que és la primera que es juga amb aquest sistema.
+Per a la resta, canvia el número.
 
-1. **`Jornades`** — afegeix-hi una fila nova: el número de jornada, `si`/`no` a cada
-   `Actiu_...` segons qui juga, les preguntes i, si ja les saps, les respostes correctes.
-   Aquesta fila és el que «obre» la jornada: l'app i l'script sempre treballen amb el
-   número més alt que hi hagi aquí.
-2. **`Doblatges`** — una fila per cada jugadora que dobla: jornada, nom, equip d'origen,
-   equip on dobla i posició. Sempre **després** del pas 1.
-3. **Menú `Supermanager → Sincronitzar doblatges`** — obligatori si aquella jornada no hi
-   ha cap doblatge (l'`onEdit` no s'hauria disparat mai). Si n'hi ha, ja s'haurà fet sol,
-   però tornar-hi no fa cap mal.
-4. **`Partits`** — afegeix una fila per cada equip que juga, amb la jornada i l'equip.
-   El resultat es posa més tard; la columna `Clau` és una fórmula, arrossega-la avall.
-5. Avisa les participants. Cadascuna entra a la seva pàgina, tria 9 jugadores, marca
-   capitana i respon les preguntes.
+### Abans d'avisar ningú
 
-**Un cop jugats els partits**
+**1. `Jornades` → afegeix-hi la fila de la jornada**
 
-6. **`Partits`** — escriu `V` o `D` a cada equip.
-7. **Menú `Supermanager → Preparar entrada de resultats`**, omplir `PUNTS` i `FALTES` a la
-   pestanya `Entrada_resultats`, i **`Supermanager → Desar resultats entrats`**.
-   Només hi surten les jugadores que ha triat algú, per equip i en ordre B/A/P.
-8. **`Respostes_usuari`** — posa a mà la columna `Punts_preguntes` (5 o 20 segons la
-   normativa).
-9. Mira **`Classificacio`** i **`Classificacio_global`**: es calculen soles.
+| Columna | Què hi poses |
+| --- | --- |
+| `Jornada` | `4` |
+| `Actiu_U13` … `Actiu_LF2` | `si` o `no` segons qui juga. Serveix en minúscula. |
+| `Pregunta_average` | El text de la pregunta fixa |
+| `Resposta_correcta_average` | Buit de moment |
+| `Pregunta_2`, `Pregunta_3` | El text, o buit si no n'hi ha |
+| `Resposta_correcta_2` / `_3` | Buit de moment |
+| `Mostrar_equips` | `SI` perquè a la classificació es vegin els equips dels altres |
 
-**Manteniment (rarament)**
+⚠️ **En escriure el número, l'app canvia de jornada per a tothom**: sempre treballa amb el
+més alt d'aquesta pestanya. Fes els passos 1 i 2 seguits, abans que ningú hi entri.
 
-- `Classificacio` només té files preparades fins a la jornada 10. A partir d'aquí, copia
-  les 7 últimes files cap avall i canvia'ls el número de jornada.
-- Si algun dia la classificació es queda encallada, executa
-  `Supermanager → Reparar fórmules de puntuació`: torna a escriure `Calcul_puntuacio` amb
-  prou files per a tot el que hi hagi a `Equips_usuari`.
+⚠️ Els `Actiu_` manen la validació. Si marques un equip que no juga, l'app obligarà a
+triar-ne una jugadora i ningú no podrà enviar l'equip.
+
+**2. `Doblatges` → les jugadores que dobles aquesta jornada**
+
+Una fila per jugadora: `Jornada`, `Nom`, `Equip_origen`, `Equip_dobla` i `Posicio`
+(`B`, `A` o `P`). Si ve de fora del club, a `Equip_origen` hi va `(fora del roster)`.
+
+En acabar d'escriure es generen soles les files a `Jugadores` i a `Resultats_jugadores`,
+i desapareixen les de la jornada anterior.
+
+**3. Si aquesta jornada no dobla ningú** → menú `Supermanager → Sincronitzar doblatges`.
+Només cal en aquest cas: si no toques `Doblatges`, l'`onEdit` no s'ha disparat mai.
+
+**4. Comprova `Jugadores`.** Al final hi ha d'haver les files amb `Origen` = `dobla (...)`
+d'aquesta jornada, i cap de l'anterior. Si hi veus les velles, torna al pas 3.
+
+**5. `Partits` → una fila per cada equip que juga**
+
+`Jornada`, `Equip`, i `Resultat` buit de moment. **Arrossega la columna `Clau` cap avall**,
+que és una fórmula. Sense aquestes files no hi ha bonus del 20%.
+
+**6. Avisa les participants.** Cadascuna tria 9 jugadores, marca capitana i respon.
+
+### Un cop jugats els partits
+
+**7. `Partits` → escriu `V` o `D`** a cada equip de la jornada.
+
+**8. Menú `Supermanager → Preparar entrada de resultats`**
+
+Fes-ho **després que hagin enviat els equips**: la pestanya es genera amb les jugadores
+que han triat. Si la prepares abans, sortirà buida.
+
+**9. Omple `PUNTS` i `FALTES`** a les caselles grogues de `Entrada_resultats`.
+
+Una jugadora que no va jugar es deixa en blanc. Qui dobla surt dues vegades, una per
+equip: la capçalera `EQUIP` del bloc diu de quin partit és cada fila.
+
+**10. Menú `Supermanager → Desar resultats entrats`**
+
+El toast diu quantes s'han desat i quantes s'han deixat en blanc. Si en falta alguna,
+s'omple i es torna a desar: es pot repetir tantes vegades com calgui.
+
+**11. `Jornades` → les respostes correctes** a `Resposta_correcta_average`, `_2` i `_3`.
+
+**12. `Respostes_usuari` → `Punts_preguntes`**
+
+Les files hi apareixen soles quan les participants responen. Aquí només es puntua: `5` o
+`20` segons la normativa. **És l'única columna de tot el full que s'ha de decidir a mà.**
+
+**13. Mira `Classificacio` i `Classificacio_global`.** Es calculen soles.
+
+### El que no s'ha de tocar cap jornada
+
+- `Calcul_puntuacio`, `Classificacio` C/D/E i `Classificacio_global`: són fórmules.
+- `Punts_migrats`: és l'històric de J1-J3, es queda quiet per sempre.
+- `Resultats_jugadores` a mà: fes-ho per `Entrada_resultats`, que és per on hi ha control.
+- «Migrar jornades 1-3» i «Reparar fórmules»: són d'un sol ús, ja estan fetes.
+
+### Manteniment (un cop per temporada)
+
+A la **jornada 11**, `Classificacio` s'acaba: només té files preparades fins a la 10.
+Copia les 7 últimes cap avall i canvia'ls el número de jornada.
+
+Si la classificació es queda encallada o hi surt `#ERROR!`, executa
+`Supermanager → Reparar fórmules de puntuació`: reescriu `Calcul_puntuacio` i arregla les
+caselles de `Classificacio` que estiguin en error.
 
 ## Migració de les jornades 1-3
 
