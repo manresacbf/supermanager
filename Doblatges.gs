@@ -471,9 +471,36 @@ function sd_reparaClassificacio_() {
       sh.getRange(r, 4).setFormula(sd_formulaPuntsPreguntes_(r));
       recuperades++;
     }
+    if (sd_totalTrencat_(sh, r)) {
+      sh.getRange(r, 5).setFormula(sd_formulaPuntsTotals_(sh, r));
+      recuperades++;
+    }
   });
 
   return recuperades;
+}
+
+/** `Punts_totals` sense fórmula, o en error. */
+function sd_totalTrencat_(sh, fila) {
+  const cel = sh.getRange(fila, 5);
+  return !cel.getFormula() || String(cel.getValue()).charAt(0) === '#';
+}
+
+/**
+ * `Punts_totals` = punts d'equip + punts de preguntes, i també els punts migrats si
+ * aquella fila n'és una de les jornades que venen del full antic.
+ */
+function sd_formulaPuntsTotals_(sh, fila) {
+  const cap = sd_capcalera_(sh);
+  const iMigrats = cap.indexOf('Punts_migrats');
+  let f = '=N($C' + fila + ')+N($D' + fila + ')';
+  if (iMigrats !== -1) {
+    const lletra = sd_lletra_(iMigrats);
+    if (!sd_buit_(sh.getRange(fila, iMigrats + 1).getValue())) {
+      f += '+N($' + lletra + fila + ')';
+    }
+  }
+  return sd_f_(f);
 }
 
 /** ---------- MIGRACIÓ DE LES JORNADES 1-3 ---------- */
