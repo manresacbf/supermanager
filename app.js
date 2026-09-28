@@ -94,12 +94,24 @@ function xhrJson(method, url, body){
   });
 }
 
+/* Apps Script falla de tant en tant (un 404 des de script.googleusercontent.com
+   després del redirect): mesurat, ~1 de cada 6 crides. Com que un GET només llegeix,
+   es pot reintentar sense por. Els POST NO es reintenten mai: quan un POST falla
+   d'aquesta manera, Apps Script sovint ja ha escrit la fila, i repetir-lo duplicaria
+   l'equip enviat. */
 async function apiGet(action, extra={}){
   const u = new URL(CONFIG.API_URL);
   u.searchParams.set('action', action);
   if (CODI_ACTUAL) u.searchParams.set('codi', CODI_ACTUAL);
   Object.entries(extra).forEach(([k,v]) => u.searchParams.set(k,v));
-  return xhrJson('GET', u.toString());
+
+  let ultim;
+  for (let intent = 0; intent < 3; intent++){
+    if (intent) await new Promise(r => setTimeout(r, 400 * intent));
+    try { return await xhrJson('GET', u.toString()); }
+    catch(err){ ultim = err; }
+  }
+  throw ultim;
 }
 async function apiPost(body){
   const cos = Object.assign({}, body);
