@@ -21,14 +21,12 @@
  *
  * 4. Desplegar → Gestiona implementacions → llapis → Versió nova. Mateixa URL.
  *
- * MENTRE DURA LA MUDANÇA
- * `AUTH_PERMET_SENSE_CODI` deixa passar les peticions sense codi, perquè les pàgines
- * per categoria que la gent ja té instal·lades (u13.html, u17sfb.html…) segueixin
- * funcionant. Quan tothom hagi entrat el seu codi a la pàgina nova, posa-ho a `false`
- * i esborra aquelles pàgines: fins llavors, el codi no protegeix de res.
+ * `AUTH_PERMET_SENSE_CODI` està a `false`: sense codi no es contesta res. Va néixer com
+ * un interruptor per no deixar penjat ningú que ja tingués l'app instal·lada, però com
+ * que encara no s'havia repartit, no hi ha ningú a qui esperar.
  */
 
-const AUTH_PERMET_SENSE_CODI = true;
+const AUTH_PERMET_SENSE_CODI = false;
 
 const AUTH = {
   FULL: 'Codis',

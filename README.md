@@ -156,13 +156,10 @@ no llança mai: una excepció allà s'escaparia del `catch` i Apps Script respon
 seva pàgina d'error HTML en comptes del JSON que espera l'app. Quan el codi no val, retorna
 un nom de participant inexistent i la validació que ja hi havia el rebutja dins del `try`.
 
-### Mentre dura la mudança
-
-`AUTH_PERMET_SENSE_CODI = true` deixa passar les peticions sense codi, perquè les pàgines
-per categoria que la gent ja té instal·lades segueixin funcionant. **Fins que no es posi a
-`false`, el codi no protegeix de res**: és només comoditat. Quan tothom hagi entrat el seu
-codi a la pàgina nova, posa-ho a `false` i esborra `u13.html`…`lf2.html` i els
-`manifest-*.json`.
+`AUTH_PERMET_SENSE_CODI` està a **`false`**: sense codi no es contesta res. Va néixer com
+un interruptor per no deixar penjat ningú que ja tingués l'app instal·lada, però l'app
+encara no s'havia repartit, així que no hi havia ningú a qui esperar. Les set pàgines per
+categoria i els seus manifests estan esborrats: l'app és una sola pàgina.
 
 ## Per què ara obre de seguida
 
@@ -323,15 +320,16 @@ La competició de debò continua, doncs, a la **jornada 4**: és la que s'ha d'a
 
 No és cap error que `Classificacio` i `Classificacio_global` facin servir `U17+SFB` i
 `U18+DE` mentre `Jugadores`, `Doblatges` i `Partits` fan servir `U17` i `U18`: els
-primers són el **participant** (qui juga al supermanager, fixat per `u17sfb.html` i
-`u18de.html`) i els segons són l'**equip del roster**. `Equips_usuari` fa servir els
-dos: `Usuari` = `U17+SFB`, `Equip_jugadora` = `U17`.
+primers són el **participant** (qui juga al supermanager: és el que hi ha a la columna
+`Usuari` de la pestanya `Codis`) i els segons són l'**equip del roster**. `Equips_usuari`
+fa servir els dos: `Usuari` = `U17+SFB`, `Equip_jugadora` = `U17`.
 
 ## Estructura del repo
 
 - `index.html` + `app.js` + `style.css` — la PWA.
-- `u13.html`, `u14.html`, … i `manifest-*.json` — les pàgines per categoria. **A jubilar**
-  quan tothom faci servir el codi: existien només per salvar el `?u=` que iOS es menjava.
+- `index.html` + `manifest.json` — una sola pàgina per a tothom. Les set pàgines per
+  categoria i els seus manifests s'han esborrat: existien només per salvar el `?u=` que
+  iOS es menjava, i amb el codi desat al mòbil ja no calen.
 - `Code.gs` — còpia **desfasada** del backend (vegeu l'avís de més amunt).
 - `Doblatges.gs` — sincronització dels doblatges, reparació de fórmules i migració de J1-J3.
 - `Entrada.gs` — la pestanya `Entrada_resultats`, la llista curta per entrar punts i faltes.

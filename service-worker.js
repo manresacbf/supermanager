@@ -9,7 +9,7 @@
  * portar dades fresques. De la còpia de les dades ja se n'ocupa l'app amb localStorage.
  */
 
-const CACHE = 'supermanager-v2';
+const CACHE = 'supermanager-v3';
 
 const CLOSCA = [
   './',

@@ -4,27 +4,16 @@ const CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbzyoYdwOOCccEkkb8ngn7GkiQkk2XW2UNpC6vwA61sizxpr12eXLjzTimiyY4iIXtS1/exec',
 };
 
-const params = new URLSearchParams(location.search);
-const usuari = params.get('u'); // ex: ?u=U13  (també accepta u17sfb / u18de en minuscules, veure NORM_USUARI)
-
-const NORM_USUARI = {
-  'u13':'U13', 'u14':'U14', 'u15':'U15', 'u16':'U16',
-  'u17sfb':'U17+SFB', 'u17+sfb':'U17+SFB',
-  'u18de':'U18+DE', 'u18+de':'U18+DE',
-  'lf2':'LF2',
-};
-// window.CATEGORIA_FIXA la fixen les pàgines d'instal·lació per categoria
-// (u13.html, u14.html...) abans de carregar aquest script — així l'app sap
-// qui ets sense dependre de cap paràmetre d'URL, que és el que no es
-// conserva quan iOS instal·la la pàgina a la pantalla d'inici. index.html
-// (sense CATEGORIA_FIXA) continua acceptant ?u=... per a ús directe al navegador.
-let USUARI_ACTUAL = window.CATEGORIA_FIXA || (usuari ? (NORM_USUARI[usuari.toLowerCase()] || usuari) : null);
+/* Qui ets ho diu el servidor quan validem el codi: l'app no ho dedueix de l'URL.
+   Abans hi havia set pàgines (u13.html, u14.html…) que fixaven la categoria a mà,
+   perquè iOS es menja el ?u= en instal·lar a la pantalla d'inici. Amb el codi desat
+   al mòbil ja no calen, i s'han esborrat. */
+let USUARI_ACTUAL = null;
 
 /* ---------- CODI D'ACCÉS I CAU ----------
    Cada participant té un codi (pestanya `Codis` del full). L'app el desa al mòbil i
-   l'envia a cada petició; el servidor el tradueix a participant. Així no calen set
-   pàgines per categoria: amb el codi desat, l'app ja sap qui ets encara que iOS
-   s'hagi menjat el ?u= en instal·lar-la a la pantalla d'inici.
+   l'envia a cada petició; el servidor el tradueix a participant i no es refia mai de
+   cap paràmetre d'URL.
 
    També desem l'última resposta del servidor, per poder pintar alguna cosa de seguida
    mentre es refresca per darrere en comptes de deixar la pantalla en blanc. */
@@ -139,8 +128,7 @@ function aplicaConfig(d){
 async function carregaConfig(silencios){
   if (silencios) marcaSubtitol(true);
   try{
-    const extra = CODI_ACTUAL ? {} : { u: USUARI_ACTUAL };
-    const d = await apiGet('config', extra);
+    const d = await apiGet('config');
     if (!d.ok) throw new Error(d.error);
     desaConfig(d);
     aplicaConfig(d);
@@ -167,7 +155,7 @@ async function init(){
     btn.addEventListener('click', () => { state.view = btn.dataset.view; render(); });
   });
 
-  if (!CODI_ACTUAL && !USUARI_ACTUAL){
+  if (!CODI_ACTUAL){
     mostraLogin();
     return;
   }
@@ -193,7 +181,7 @@ function mostraLogin(missatge){
   document.getElementById('login').innerHTML = `
     <div class="card login-card">
       <h2>Entra el teu codi</h2>
-      <p class="login-ajuda">Te l'ha donat l'organització. Només cal entrar-lo un cop:
+      <p class="login-ajuda">Te l'ha donat la Cúpula, els jefes. Només cal entrar-lo un cop:
         després l'app ja sabrà qui ets.</p>
       <input type="text" id="camp-codi" inputmode="latin" autocapitalize="characters"
              autocomplete="one-time-code" spellcheck="false" placeholder="ABC234" maxlength="12" />
@@ -224,7 +212,7 @@ async function entraAmbCodi(){
       // codis a l'atzar quan el que passa és que no hi ha cobertura.
       throw new Error('No s\'ha pogut connectar. ' + xarxa.message);
     }
-    if (!d.ok) throw new Error('El codi no és correcte. Comprova\'l o demana\'l a l\'organització.');
+    if (!d.ok) throw new Error('El codi no és correcte. Comprova\'l o demana\'l a la Cúpula.');
     desaLocal(LS_CODI, codi);
     desaConfig(d);
     aplicaConfig(d);
@@ -288,9 +276,7 @@ function viewMeuEquip(){
   `;
 }
 
-/** Només a la pàgina amb codi: les pàgines velles per categoria no tenen sessió. */
 function botoSortir(){
-  if (!CODI_ACTUAL) return '';
   return `<button class="btn-sortir" onclick="surt()">Sortir d'aquest codi</button>`;
 }
 
@@ -458,7 +444,6 @@ async function enviarEquip(){
   btn.disabled = true; btn.textContent = 'Enviant…';
   try{
     const resp = await apiPost({
-      usuari: USUARI_ACTUAL,
       jugadors: state.seleccio,
       capitana: state.capitana,
     });
@@ -468,7 +453,7 @@ async function enviarEquip(){
       state.data.jaEnviat = true;
       state.confirmant = false;
       state.view = 'meuequip';
-      setTimeout(async () => { state.data = await apiGet('config', {u:USUARI_ACTUAL}); render(); }, 600);
+      setTimeout(async () => { state.data = await apiGet('config'); render(); }, 600);
     } else {
       msg.innerHTML = '<div class="error-box">' + resp.error + '</div>';
       btn.disabled = false; btn.textContent = 'Confirmar i enviar';
@@ -582,7 +567,7 @@ async function enviarRespostes(){
     p3: (document.getElementById('resp-p3') || {}).value || '',
   };
   try{
-    const resp = await apiPost({ usuari: USUARI_ACTUAL, tipus: 'respostes', respostes });
+    const resp = await apiPost({ tipus: 'respostes', respostes });
     const msg = document.getElementById('preguntes-missatge');
     if (resp.ok){
       state.data.respostes = respostes;
