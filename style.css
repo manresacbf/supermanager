@@ -150,3 +150,43 @@ nav.bottom svg{ width:21px; height:21px; }
 .rank-points{ margin-left:auto; font-weight:800; font-size:15px; }
 
 .loading{ text-align:center; padding:40px; color:var(--text-dim); font-size:13.5px; }
+
+/* ---------- Pantalla del codi d'accés ---------- */
+#login { display: none; }
+body.sense-sessio #login { display: block; }
+body.sense-sessio #app,
+body.sense-sessio nav.bottom { display: none; }
+
+.login-card { margin-top: 28px; }
+.login-ajuda {
+  color: var(--text-dim);
+  font-size: 13.5px;
+  margin: 6px 0 16px;
+  line-height: 1.45;
+}
+#camp-codi {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 26px;
+  letter-spacing: 6px;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 14px 10px;
+  margin-bottom: 12px;
+}
+.login-card .error-box { margin-bottom: 12px; }
+
+/* ---------- Sortir ---------- */
+.btn-sortir {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  padding: 11px;
+  font-size: 13px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn-sortir:hover { color: #fff; border-color: rgba(255, 255, 255, .3); }

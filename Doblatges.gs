@@ -74,6 +74,8 @@ function onOpen() {
     .addItem('Sincronitzar doblatges', 'sincronitzaDoblatgesAmbAvis')
     .addItem('Reparar fórmules de puntuació', 'reparaFormulesAmbAvis')
     .addItem('Migrar jornades 1-3 del full antic', 'migraHistoricAmbAvis')
+    .addSeparator()
+    .addItem('Crear codis d\'accés', 'creaCodisAmbAvis')
     .addToUi();
 }
 

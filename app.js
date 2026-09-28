@@ -18,7 +18,42 @@ const NORM_USUARI = {
 // qui ets sense dependre de cap paràmetre d'URL, que és el que no es
 // conserva quan iOS instal·la la pàgina a la pantalla d'inici. index.html
 // (sense CATEGORIA_FIXA) continua acceptant ?u=... per a ús directe al navegador.
-const USUARI_ACTUAL = window.CATEGORIA_FIXA || (usuari ? (NORM_USUARI[usuari.toLowerCase()] || usuari) : null);
+let USUARI_ACTUAL = window.CATEGORIA_FIXA || (usuari ? (NORM_USUARI[usuari.toLowerCase()] || usuari) : null);
+
+/* ---------- CODI D'ACCÉS I CAU ----------
+   Cada participant té un codi (pestanya `Codis` del full). L'app el desa al mòbil i
+   l'envia a cada petició; el servidor el tradueix a participant. Així no calen set
+   pàgines per categoria: amb el codi desat, l'app ja sap qui ets encara que iOS
+   s'hagi menjat el ?u= en instal·lar-la a la pantalla d'inici.
+
+   També desem l'última resposta del servidor, per poder pintar alguna cosa de seguida
+   mentre es refresca per darrere en comptes de deixar la pantalla en blanc. */
+const LS_CODI = 'sm_codi';
+const LS_CONFIG = 'sm_config';
+
+function desaLocal(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+function llegeixLocal(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function esborraLocal(k){ try { localStorage.removeItem(k); } catch(e){} }
+
+let CODI_ACTUAL = llegeixLocal(LS_CODI);
+
+function configDesat(){
+  try {
+    const cru = llegeixLocal(LS_CONFIG);
+    if (!cru) return null;
+    const d = JSON.parse(cru);
+    return (d && d.ok) ? d : null;
+  } catch(e){ return null; }
+}
+function desaConfig(d){
+  if (d && d.ok) desaLocal(LS_CONFIG, JSON.stringify(d));
+}
+function oblidaSessio(){
+  CODI_ACTUAL = null;
+  USUARI_ACTUAL = null;
+  esborraLocal(LS_CODI);
+  esborraLocal(LS_CONFIG);
+}
 
 let state = {
   view: 'meuequip',
@@ -51,6 +86,10 @@ function xhrJson(method, url, body){
       catch(e){ reject(new Error('Resposta no vàlida del servidor.')); }
     };
     xhr.onerror = () => reject(new Error('Error de connexió.'));
+    // Apps Script de tant en tant no contesta mai. Sense això, l'app es quedaria
+    // esperant indefinidament dient "actualitzant".
+    xhr.timeout = 20000;
+    xhr.ontimeout = () => reject(new Error('El servidor no contesta.'));
     xhr.send(body != null ? body : null);
   });
 }
@@ -58,37 +97,141 @@ function xhrJson(method, url, body){
 async function apiGet(action, extra={}){
   const u = new URL(CONFIG.API_URL);
   u.searchParams.set('action', action);
+  if (CODI_ACTUAL) u.searchParams.set('codi', CODI_ACTUAL);
   Object.entries(extra).forEach(([k,v]) => u.searchParams.set(k,v));
   return xhrJson('GET', u.toString());
 }
 async function apiPost(body){
-  return xhrJson('POST', CONFIG.API_URL, JSON.stringify(body));
+  const cos = Object.assign({}, body);
+  if (CODI_ACTUAL) cos.codi = CODI_ACTUAL;
+  return xhrJson('POST', CONFIG.API_URL, JSON.stringify(cos));
 }
 
 function posLabel(p){ return {B:'Base', A:'Aler', P:'Pivot'}[p] || p; }
 
-async function init(){
-  if (!USUARI_ACTUAL){
-    document.getElementById('app').innerHTML =
-      '<div class="card"><div class="error-box">Aquest enllaç no identifica cap categoria. Demana l\'enllaç correcte a l\'organització (ha de portar ?u=... al final).</div></div>';
-    return;
+function mostraApp(visible){
+  document.body.classList.toggle('sense-sessio', !visible);
+}
+
+function aplicaConfig(d){
+  state.data = d;
+  USUARI_ACTUAL = d.usuari || USUARI_ACTUAL;
+  marcaSubtitol(false);
+  if (d.meuEquip){
+    state.seleccio = d.meuEquip.jugadores.map(j => ({nom:j.nom, equip:j.equip, posicio:j.posicio}));
+    state.capitana = (d.meuEquip.jugadores.find(j=>j.capitana) || {}).nom || null;
   }
-  document.getElementById('header-sub').textContent = USUARI_ACTUAL;
+}
+
+/** Demana la config al servidor. Si `silenciós`, no esborra el que ja es veu. */
+async function carregaConfig(silencios){
+  if (silencios) marcaSubtitol(true);
   try{
-    state.data = await apiGet('config', { u: USUARI_ACTUAL });
-    if (!state.data.ok) throw new Error(state.data.error);
+    const extra = CODI_ACTUAL ? {} : { u: USUARI_ACTUAL };
+    const d = await apiGet('config', extra);
+    if (!d.ok) throw new Error(d.error);
+    desaConfig(d);
+    aplicaConfig(d);
+    render();
   } catch(err){
-    document.getElementById('app').innerHTML = '<div class="card"><div class="error-box">No s\'ha pogut connectar amb el full de dades. ' + err.message + '</div></div>';
-    return;
+    if (silencios) return; // ja s'està veient la còpia desada, no la tapem
+    document.getElementById('app').innerHTML =
+      '<div class="card"><div class="error-box">No s\'ha pogut connectar amb el full de dades. ' +
+      err.message + '</div></div>';
+  } finally {
+    marcaSubtitol(false);
   }
-  if (state.data.meuEquip){
-    state.seleccio = state.data.meuEquip.jugadores.map(j => ({nom:j.nom, equip:j.equip, posicio:j.posicio}));
-    state.capitana = (state.data.meuEquip.jugadores.find(j=>j.capitana) || {}).nom || null;
-  }
-  render();
+}
+
+/** Mentre es refresca per darrere, l'únic avís és al subtítol de la capçalera. */
+function marcaSubtitol(refrescant){
+  const el = document.getElementById('header-sub');
+  if (!el) return;
+  el.textContent = (USUARI_ACTUAL || '') + (refrescant ? ' · actualitzant…' : '');
+}
+
+async function init(){
   document.querySelectorAll('nav.bottom button').forEach(btn=>{
     btn.addEventListener('click', () => { state.view = btn.dataset.view; render(); });
   });
+
+  if (!CODI_ACTUAL && !USUARI_ACTUAL){
+    mostraLogin();
+    return;
+  }
+
+  mostraApp(true);
+
+  // Si tenim una còpia de l'últim cop, es pinta de seguida i es refresca per darrere:
+  // val més veure l'equip d'ahir un segon que una pantalla en blanc.
+  const desat = configDesat();
+  if (desat){
+    aplicaConfig(desat);
+    render();
+    carregaConfig(true);
+    return;
+  }
+  await carregaConfig(false);
+}
+
+/* ---------- PANTALLA DEL CODI ---------- */
+function mostraLogin(missatge){
+  mostraApp(false);
+  document.getElementById('header-sub').textContent = '';
+  document.getElementById('login').innerHTML = `
+    <div class="card login-card">
+      <h2>Entra el teu codi</h2>
+      <p class="login-ajuda">Te l'ha donat l'organització. Només cal entrar-lo un cop:
+        després l'app ja sabrà qui ets.</p>
+      <input type="text" id="camp-codi" inputmode="latin" autocapitalize="characters"
+             autocomplete="one-time-code" spellcheck="false" placeholder="ABC234" maxlength="12" />
+      ${missatge ? '<div class="error-box">' + missatge + '</div>' : ''}
+      <button class="btn-primary" id="btn-entrar">Entrar</button>
+    </div>`;
+  const camp = document.getElementById('camp-codi');
+  const btn = document.getElementById('btn-entrar');
+  btn.addEventListener('click', entraAmbCodi);
+  camp.addEventListener('keydown', e => { if (e.key === 'Enter') entraAmbCodi(); });
+  camp.focus();
+}
+
+async function entraAmbCodi(){
+  const camp = document.getElementById('camp-codi');
+  const btn = document.getElementById('btn-entrar');
+  const codi = (camp.value || '').trim().toUpperCase();
+  if (!codi) { camp.focus(); return; }
+
+  btn.disabled = true; btn.textContent = 'Comprovant…';
+  CODI_ACTUAL = codi;
+  try{
+    let d;
+    try {
+      d = await apiGet('config');
+    } catch(xarxa){
+      // Un problema de connexió no és un codi dolent: dir-ho bé estalvia que provin
+      // codis a l'atzar quan el que passa és que no hi ha cobertura.
+      throw new Error('No s\'ha pogut connectar. ' + xarxa.message);
+    }
+    if (!d.ok) throw new Error('El codi no és correcte. Comprova\'l o demana\'l a l\'organització.');
+    desaLocal(LS_CODI, codi);
+    desaConfig(d);
+    aplicaConfig(d);
+    mostraApp(true);
+    state.view = 'meuequip';
+    render();
+  } catch(err){
+    CODI_ACTUAL = null;
+    mostraLogin(err.message);
+  }
+}
+
+function surt(){
+  if (!confirm('Vols sortir? Hauràs de tornar a entrar el codi.')) return;
+  oblidaSessio();
+  state.data = null;
+  state.seleccio = [];
+  state.capitana = null;
+  mostraLogin();
 }
 
 function render(){
@@ -120,6 +263,7 @@ function viewMeuEquip(){
         ${rows}
       </div>
       <div class="empty">Per canviar l'equip d'aquesta jornada, contacta l'organització.</div>
+      ${botoSortir()}
     `;
   }
   return `
@@ -128,7 +272,14 @@ function viewMeuEquip(){
       <p style="color:var(--text-dim); font-size:13.5px; margin:6px 0 12px;">Encara no has enviat l'equip d'aquesta jornada.</p>
       <button class="btn-primary" onclick="state.view='escollir'; render();">Escollir equip</button>
     </div>
+    ${botoSortir()}
   `;
+}
+
+/** Només a la pàgina amb codi: les pàgines velles per categoria no tenen sessió. */
+function botoSortir(){
+  if (!CODI_ACTUAL) return '';
+  return `<button class="btn-sortir" onclick="surt()">Sortir d'aquest codi</button>`;
 }
 
 /* ---------- VISTA: ESCOLLIR EQUIP ---------- */

@@ -120,6 +120,65 @@ Sobre les dades de la jornada 1: **28 jugadores → 56 caselles**, en comptes de
 
 Les dues columnes per omplir surten amb fons groc; la resta és informació.
 
+## Codi d'accés — `Auth.gs`
+
+Cada participant té un codi (pestanya `Codis` del full). L'app el desa al mòbil i l'envia
+**a cada petició**; el servidor el tradueix a participant i no es refia mai del paràmetre
+`u`. Sense això, qualsevol que tingués l'URL de l'`/exec` podia enviar l'equip d'un altre.
+
+De passada s'emporta tot l'embolic de les set pàgines per categoria: existien només perquè
+iOS es menja el `?u=` en instal·lar a la pantalla d'inici, i amb el codi desat al mòbil
+l'app ja sap qui ets. Un sol enllaç per repartir.
+
+### Instal·lació
+
+1. Enganxa `Auth.gs` com un fitxer nou `Auth` al projecte d'Apps Script.
+2. Menú `Supermanager → Crear codis d'accés`: crea la pestanya `Codis` amb un codi de 6
+   caràcters per participant. **Els codis no són al repositori**: els genera el full, amb un
+   alfabet sense caràcters que es confonguin (ni `O`/`0` ni `I`/`1`). Tornar-hi a passar no
+   reescriu els que ja existeixen, només n'afegeix als qui no en tinguin.
+3. Al `Code.gs` desplegat, canvia **dues línies**:
+
+   ```js
+   // dins de doGet(e)
+   - const usuari = e.parameter.u;
+   + const usuari = auth_resolUsuari_(e.parameter);
+
+   // dins de doPost(e)
+   - const usuari = body.usuari;
+   + const usuari = auth_resolUsuari_(body);
+   ```
+
+4. Desplegar → Gestiona implementacions → llapis → **Versió nova** (mateixa URL).
+
+### Mentre dura la mudança
+
+`AUTH_PERMET_SENSE_CODI = true` deixa passar les peticions sense codi, perquè les pàgines
+per categoria que la gent ja té instal·lades segueixin funcionant. **Fins que no es posi a
+`false`, el codi no protegeix de res**: és només comoditat. Quan tothom hagi entrat el seu
+codi a la pàgina nova, posa-ho a `false` i esborra `u13.html`…`lf2.html` i els
+`manifest-*.json`.
+
+## Per què ara obre de seguida
+
+Dues coses, independents del codi.
+
+**El `service-worker.js` no existia.** L'`app.js` el cridava des del primer dia, el registre
+fallava en silenci (`.catch(()=>{})`) i per tant no hi havia cap cau: cada obertura es
+baixava tot de zero. Ara la closca (pàgina, estils, icones) surt sense xarxa.
+
+**L'última resposta del servidor es desa al mòbil.** En obrir, es pinta de seguida el que hi
+havia l'últim cop i es refresca per darrere; mentrestant el subtítol diu «actualitzant…».
+Mesurat en proves: l'app sencera pintada en **menys de 200 ms**, sense esperar Apps Script.
+I si el servidor no contesta, es queda el que ja es veia en comptes de pantalla d'error.
+
+Les peticions tenen un **límit de 20 segons**: Apps Script de tant en tant no contesta mai, i
+sense això l'app es quedaria dient «actualitzant» per sempre.
+
+⚠️ **En publicar canvis al front, puja el número de `CACHE` a `service-worker.js`**
+(`supermanager-v1` → `-v2`). El cau serveix la còpia i busca la versió nova per darrere, o
+sigui que sense canviar-lo la gent veuria el canvi al segon obert; canviant-lo, al primer.
+
 ## Rutina de cada jornada
 
 Escrita pas a pas per a la jornada 4, que és la primera que es juga amb aquest sistema.
@@ -266,12 +325,13 @@ dos: `Usuari` = `U17+SFB`, `Equip_jugadora` = `U17`.
 ## Estructura del repo
 
 - `index.html` + `app.js` + `style.css` — la PWA.
-- `u13.html`, `u14.html`, … — pàgina d'instal·lació per categoria (fixen `CATEGORIA_FIXA`,
-  perquè iOS no conserva el `?u=...` en instal·lar a la pantalla d'inici).
-- `manifest-*.json` — un manifest per categoria.
+- `u13.html`, `u14.html`, … i `manifest-*.json` — les pàgines per categoria. **A jubilar**
+  quan tothom faci servir el codi: existien només per salvar el `?u=` que iOS es menjava.
 - `Code.gs` — còpia **desfasada** del backend (vegeu l'avís de més amunt).
 - `Doblatges.gs` — sincronització dels doblatges, reparació de fórmules i migració de J1-J3.
 - `Entrada.gs` — la pestanya `Entrada_resultats`, la llista curta per entrar punts i faltes.
+- `Auth.gs` — els codis d'accés i la traducció codi → participant.
+- `service-worker.js` — el cau de la closca de l'app.
 - `Supermanager MCBF 26-27 Dades.xlsx` — instantània del full baixada el 24/09/2026.
   És només una còpia de consulta. El full de debò és el Google Sheet, i **aquest .xlsx no
   s'hi ha de tornar a pujar mai a sobre**: es perdrien l'Apps Script i les fórmules.
