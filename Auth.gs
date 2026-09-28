@@ -45,20 +45,20 @@ const AUTH_LLARGADA = 6;
 
 /**
  * Qui és qui fa la petició. Rep l'objecte de paràmetres (d'un GET) o el cos (d'un POST).
- * Llança si el codi no val, de manera que el web app ja respon amb l'error.
+ *
+ * MAI no llança. Al `doGet` desplegat, la línia que crida aquesta funció és **abans**
+ * del `try`, de manera que una excepció s'escaparia del `catch` i Apps Script respondria
+ * amb la seva pàgina d'error HTML en comptes del JSON que espera l'app. Per això, quan
+ * el codi no val, retornem un nom de participant que no existeix: la validació que ja hi
+ * ha (`USUARIS_VALIDS`) el rebutja dins del `try` i l'error surt en JSON com cal.
  */
 function auth_resolUsuari_(params) {
   params = params || {};
   const codi = String(params.codi || '').trim();
 
-  if (codi) {
-    const usuari = auth_usuariPerCodi_(codi);
-    if (!usuari) throw new Error('El codi no és correcte. Demana el teu a l\'organització.');
-    return usuari;
-  }
-
+  if (codi) return auth_usuariPerCodi_(codi) || '(codi no vàlid)';
   if (AUTH_PERMET_SENSE_CODI) return params.u || params.usuari || '';
-  throw new Error('Cal entrar el codi d\'accés.');
+  return '(sense codi)';
 }
 
 /** Retorna el participant d'un codi actiu, o null. No distingeix majúscules ni espais. */

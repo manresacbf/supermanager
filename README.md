@@ -151,6 +151,11 @@ l'app ja sap qui ets. Un sol enllaç per repartir.
 
 4. Desplegar → Gestiona implementacions → llapis → **Versió nova** (mateixa URL).
 
+Al `doGet` desplegat, aquesta línia és **abans del `try`**. Per això `auth_resolUsuari_()`
+no llança mai: una excepció allà s'escaparia del `catch` i Apps Script respondria amb la
+seva pàgina d'error HTML en comptes del JSON que espera l'app. Quan el codi no val, retorna
+un nom de participant inexistent i la validació que ja hi havia el rebutja dins del `try`.
+
 ### Mentre dura la mudança
 
 `AUTH_PERMET_SENSE_CODI = true` deixa passar les peticions sense codi, perquè les pàgines
