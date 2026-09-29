@@ -254,6 +254,14 @@ equip: la capçalera `EQUIP` del bloc diu de quin partit és cada fila.
 El toast diu quantes s'han desat i quantes s'han deixat en blanc. Si en falta alguna,
 s'omple i es torna a desar: es pot repetir tantes vegades com calgui.
 
+Si la pestanya es va preparar per a una altra jornada, avisa abans de desar: no es refà
+sola, i el desat es guia pel número que porta escrit al títol.
+
+⚠️ `Entrada_resultats` es construeix amb les jugadores **triades en aquell moment**.
+Prepara-la quan els set equips ja estiguin enviats, no abans. Si la refàs més tard, es
+reescriu sencera però conserva els punts que ja hagis **desat** (no els escrits a la
+pestanya sense desar).
+
 **11. `Jornades` → les respostes correctes** a `Resposta_correcta_average`, `_2` i `_3`.
 
 **12. `Respostes_usuari` → `Punts_preguntes`**

@@ -154,7 +154,29 @@ function se_equipsOrdenats_(llista) {
 
 /** ---------- DESAR ---------- */
 
+/**
+ * La pestanya no es refà sola: si es va preparar per a una jornada i després se n'obre
+ * una altra, el títol continua dient la vella i el desat es guia pel títol. Sense això,
+ * els punts d'una jornada anirien a parar a l'altra sense dir ni piu.
+ */
 function desaResultatsEntratsAmbAvis() {
+  const delFull = se_jornadaDelFull_(sd_full_(SE.ENTRADA));
+  const actual = sd_jornadaActual_();
+
+  if (delFull !== actual) {
+    const ui = SpreadsheetApp.getUi();
+    const resposta = ui.alert(
+      'La pestanya no és d\'aquesta jornada',
+      'La pestanya "' + SE.ENTRADA + '" es va preparar per a la jornada ' + delFull +
+      ', però la jornada en curs és la ' + actual + '.\n\n' +
+      'Si continues, els punts s\'escriuran a la jornada ' + delFull + '.\n\n' +
+      'El més calent és prémer "Preparar entrada de resultats", que la refà amb la ' +
+      'jornada ' + actual + ' i les jugadores que hagin triat.\n\n' +
+      'Vols desar igualment a la jornada ' + delFull + '?',
+      ui.ButtonSet.YES_NO);
+    if (resposta !== ui.Button.YES) return;
+  }
+
   const r = desaResultatsEntrats();
   SpreadsheetApp.getActiveSpreadsheet().toast(
     'Jornada ' + r.jornada + ': ' + r.desades + ' jugadores desades' +
