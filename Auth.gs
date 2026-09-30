@@ -225,14 +225,37 @@ function auth_tancament_(jornada) {
   return null;
 }
 
-/** Que hi ha al `config` perquè l'app ho pugui ensenyar. */
+/** Dues xifres, per muntar dates sense dependre de cap servei d'Apps Script. */
+function auth_dd_(n) { return (n < 10 ? '0' : '') + n; }
+
+/** "2026-10-05T20:00:00", en l'hora tal com està escrita al full. */
+function auth_iso_(d) {
+  return d.getFullYear() + '-' + auth_dd_(d.getMonth() + 1) + '-' + auth_dd_(d.getDate()) +
+    'T' + auth_dd_(d.getHours()) + ':' + auth_dd_(d.getMinutes()) + ':00';
+}
+
+/** "5/10 a les 20:00" */
+function auth_dataCurta_(d) {
+  return d.getDate() + '/' + auth_dd_(d.getMonth() + 1) +
+    ' a les ' + auth_dd_(d.getHours()) + ':' + auth_dd_(d.getMinutes());
+}
+
+/**
+ * Què va al `config` perquè l'app ho pugui ensenyar.
+ *
+ * MAI no llança: si petés, s'enduria per davant tot el `config` i ningú no podria entrar
+ * a l'app. Un problema ensenyant l'hora límit ha de fer, com a molt, que no es vegi
+ * l'hora límit. Qui de debò fa complir el límit és `auth_exigeixObert_()` al `doPost`.
+ */
 function auth_estatTancament_(jornada) {
-  const tanca = auth_tancament_(jornada);
-  if (!tanca) return { tancament: null, tancat: false };
-  return {
-    tancament: Utilities.formatDate(tanca, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss"),
-    tancat: new Date().getTime() >= tanca.getTime(),
-  };
+  try {
+    const tanca = auth_tancament_(jornada);
+    if (!tanca) return { tancament: null, tancat: false };
+    return { tancament: auth_iso_(tanca), tancat: new Date().getTime() >= tanca.getTime() };
+  } catch (err) {
+    console.error('auth_estatTancament_: ' + err);
+    return { tancament: null, tancat: false };
+  }
 }
 
 /** Llança si la jornada ja està tancada. Va dins del `try` del `doPost`. */
@@ -240,6 +263,5 @@ function auth_exigeixObert_(jornada) {
   const tanca = auth_tancament_(jornada);
   if (!tanca) return;
   if (new Date().getTime() < tanca.getTime()) return;
-  throw new Error('Les tries d\'aquesta jornada es van tancar el ' +
-    Utilities.formatDate(tanca, Session.getScriptTimeZone(), "d/MM 'a les' HH:mm") + '.');
+  throw new Error('Les tries d\'aquesta jornada es van tancar el ' + auth_dataCurta_(tanca) + '.');
 }
