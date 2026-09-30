@@ -112,6 +112,36 @@ async function apiPost(body){
 
 function posLabel(p){ return {B:'Base', A:'Aler', P:'Pivot'}[p] || p; }
 
+/* ---------- HORA LÍMIT ----------
+   La jornada pot tenir una hora de tancament (columna `Tancament` de `Jornades`).
+   Qui mana és el servidor: `tancat` ve calculat per ell, perquè l'hora del mòbil es pot
+   canviar. Aquí només ho ensenyem i evitem que algú ompli un equip per res. */
+const DIES = ['diumenge','dilluns','dimarts','dimecres','dijous','divendres','dissabte'];
+const MESOS = ['gener','febrer','març','abril','maig','juny','juliol','agost','setembre','octubre','novembre','desembre'];
+
+function jornadaTancada(){ return !!(state.data && state.data.tancat); }
+
+function textTancament(){
+  const t = state.data && state.data.tancament;
+  if (!t) return '';
+  // Sense zona horària: l'hora ve ja en la del full, i afegir-n'hi una la mouria.
+  const d = new Date(t.replace(' ', 'T'));
+  if (isNaN(d.getTime())) return '';
+  const hh = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  const mes = MESOS[d.getMonth()];
+  // abril, agost i octubre volen apòstrof: "4 d'octubre", no "4 de octubre".
+  const de = 'aeiou'.indexOf(mes.charAt(0)) === -1 ? "de " : "d'";
+  return DIES[d.getDay()] + ' ' + d.getDate() + ' ' + de + mes + ' a les ' + hh;
+}
+
+function avisTancament(){
+  if (!state.data || !state.data.tancament) return '';
+  if (jornadaTancada()){
+    return `<div class="error-box">Les tries d'aquesta jornada estan tancades des del ${textTancament()}.</div>`;
+  }
+  return `<div class="avis-limit">Pots canviar l'equip fins <strong>${textTancament()}</strong>.</div>`;
+}
+
 function mostraApp(visible){
   document.body.classList.toggle('sense-sessio', !visible);
 }
@@ -281,7 +311,8 @@ function viewMeuEquip(){
     <div class="card">
       <div class="row"><h2>Jornada ${jornada}</h2><span class="pill bad">Sense enviar</span></div>
       <p style="color:var(--text-dim); font-size:13.5px; margin:6px 0 12px;">Encara no has enviat l'equip d'aquesta jornada.</p>
-      <button class="btn-primary" onclick="state.view='escollir'; render();">Escollir equip</button>
+      ${avisTancament()}
+      ${jornadaTancada() ? '' : `<button class="btn-primary" onclick="state.view='escollir'; render();">Escollir equip</button>`}
     </div>
     ${botoSortir()}
   `;
@@ -320,6 +351,9 @@ function viewEscollir(){
   if (state.data.jaEnviat){
     return `<div class="card"><div class="ok-box">Ja has enviat l'equip d'aquesta jornada. Consulta'l a "El meu equip".</div></div>`;
   }
+  if (jornadaTancada()){
+    return `<div class="card">${avisTancament()}</div>`;
+  }
   if (state.confirmant){
     return viewConfirmacio();
   }
@@ -353,6 +387,7 @@ function viewEscollir(){
   const equipsFaltants = state.data.equipsActius.filter(eq => !equipsCoberts.has(eq));
 
   return `
+    ${avisTancament()}
     <div class="card">
       <div class="row"><h2>Jornada ${state.data.jornada} · resum</h2><span class="pill">${state.seleccio.length}/9</span></div>
       <div class="row" style="font-size:12.5px; color:var(--text-dim); margin-top:2px;">
@@ -437,7 +472,8 @@ function capitanaPicker(){
 }
 
 function validEnviament(){
-  return state.seleccio.length===9
+  return !jornadaTancada()
+    && state.seleccio.length===9
     && ['B','A','P'].every(p=>contaPosicio(p)===3)
     && state.data.equipsActius.every(eq => state.seleccio.some(j=>j.equip===eq))
     && !!state.capitana;

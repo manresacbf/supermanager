@@ -181,3 +181,65 @@ function auth_codiNou_(usats) {
   }
   throw new Error('No s\'ha pogut generar un codi nou.');
 }
+
+/** ---------- HORA LÍMIT PER ENVIAR L'EQUIP ---------- */
+
+/**
+ * Cada jornada pot tenir una hora de tancament a la columna `Tancament` de `Jornades`:
+ * normalment, quan comença el primer partit. A partir d'aquella hora el servidor deixa
+ * d'acceptar equips i respostes.
+ *
+ * Ho comprova el servidor i no l'app, perquè si ho decidís el mòbil n'hi hauria prou amb
+ * canviar-li l'hora per saltar-se el límit. L'app només ho ensenya.
+ *
+ * Si la casella és buida, aquella jornada no té límit i tot segueix com fins ara.
+ *
+ * AL `Code.gs`, dins de `doPost(e)`, just després de la línia de `const usuari`:
+ *
+ *     auth_exigeixObert_();
+ */
+
+const AUTH_COL_TANCAMENT = 'Tancament';
+
+/** L'hora de tancament de la jornada, o null si aquella jornada no en té. */
+function auth_tancament_(jornada) {
+  const sh = sd_ss_().getSheetByName('Jornades');
+  if (!sh) return null;
+
+  const cap = sd_capcalera_(sh);
+  const iJor = cap.indexOf('Jornada');
+  const iTanca = cap.indexOf(AUTH_COL_TANCAMENT);
+  if (iJor === -1 || iTanca === -1) return null;
+
+  if (jornada === undefined) jornada = sd_jornadaActual_();
+
+  const files = sd_valors_(sh, cap.length);
+  for (let i = 0; i < files.length; i++) {
+    if (Number(files[i][iJor]) !== Number(jornada)) continue;
+    const v = files[i][iTanca];
+    if (v instanceof Date) return v;
+    if (sd_buit_(v)) return null;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+/** Que hi ha al `config` perquè l'app ho pugui ensenyar. */
+function auth_estatTancament_(jornada) {
+  const tanca = auth_tancament_(jornada);
+  if (!tanca) return { tancament: null, tancat: false };
+  return {
+    tancament: Utilities.formatDate(tanca, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss"),
+    tancat: new Date().getTime() >= tanca.getTime(),
+  };
+}
+
+/** Llança si la jornada ja està tancada. Va dins del `try` del `doPost`. */
+function auth_exigeixObert_(jornada) {
+  const tanca = auth_tancament_(jornada);
+  if (!tanca) return;
+  if (new Date().getTime() < tanca.getTime()) return;
+  throw new Error('Les tries d\'aquesta jornada es van tancar el ' +
+    Utilities.formatDate(tanca, Session.getScriptTimeZone(), "d/MM 'a les' HH:mm") + '.');
+}

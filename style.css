@@ -192,3 +192,15 @@ body.sense-sessio nav.bottom { display: none; }
   cursor: pointer;
 }
 .btn-sortir:hover { color: #fff; border-color: rgba(255, 255, 255, .3); }
+
+/* ---------- Hora límit per enviar l'equip ---------- */
+.avis-limit{
+  background:rgba(233,30,99,.10);
+  border:1px solid rgba(233,30,99,.30);
+  color:var(--text);
+  border-radius:12px;
+  padding:11px 14px;
+  font-size:13px;
+  margin-bottom:14px;
+  line-height:1.4;
+}

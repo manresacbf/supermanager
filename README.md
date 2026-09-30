@@ -181,6 +181,30 @@ sense això l'app es quedaria dient «actualitzant» per sempre.
 (`supermanager-v1` → `-v2`). El cau serveix la còpia i busca la versió nova per darrere, o
 sigui que sense canviar-lo la gent veuria el canvi al segon obert; canviant-lo, al primer.
 
+## Hora límit per enviar l'equip
+
+Columna **`Tancament`** de `Jornades`: data i hora (normalment, quan comença el primer
+partit). A partir d'aquell moment el servidor deixa d'acceptar equips i respostes
+d'aquella jornada. Si la casella és buida, aquella jornada no té límit.
+
+**Qui mana és el servidor, no l'app.** Si ho decidís el mòbil n'hi hauria prou amb
+canviar-li l'hora per saltar-se el límit. L'app rep del `config` un `tancat` ja calculat,
+i l'únic que fa és ensenyar-ho i estalviar que algú ompli un equip per res.
+
+Al `Code.gs`, dins de `doPost(e)`, just després de la línia del `const usuari`:
+
+```js
+auth_exigeixObert_();
+```
+
+I dins de `doGet(e)`, a la resposta de `action === 'config'`, una clau més:
+
+```js
+...auth_estatTancament_(jornada),
+```
+
+Cal **Versió nova** perquè el web app se n'assabenti.
+
 ## Rutina de cada jornada
 
 Escrita pas a pas per a la jornada 4, que és la primera que es juga amb aquest sistema.
