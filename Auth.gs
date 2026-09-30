@@ -225,19 +225,28 @@ function auth_tancament_(jornada) {
   return null;
 }
 
-/** Dues xifres, per muntar dates sense dependre de cap servei d'Apps Script. */
-function auth_dd_(n) { return (n < 10 ? '0' : '') + n; }
-
-/** "2026-10-05T20:00:00", en l'hora tal com està escrita al full. */
-function auth_iso_(d) {
-  return d.getFullYear() + '-' + auth_dd_(d.getMonth() + 1) + '-' + auth_dd_(d.getDate()) +
-    'T' + auth_dd_(d.getHours()) + ':' + auth_dd_(d.getMinutes()) + ':00';
+/**
+ * Les dates es formaten en el fus del FULL, no el de l'script.
+ *
+ * `getHours()` d'un Date dona l'hora en el fus del projecte d'Apps Script, que no té per
+ * què ser el mateix que el del full: un script creat en fus australià llegint un full en
+ * hora de Madrid ensenyava les 19:30 on el full deia 10:30.
+ *
+ * Això només afectava com es veia escrita l'hora. La comparació de `auth_exigeixObert_()`
+ * és entre instants absoluts i sempre ha estat correcta.
+ */
+function auth_fusDelFull_() {
+  return sd_ss_().getSpreadsheetTimeZone();
 }
 
-/** "5/10 a les 20:00" */
+/** "2026-10-04T10:30:00", tal com està escrit al full. */
+function auth_iso_(d) {
+  return Utilities.formatDate(d, auth_fusDelFull_(), "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+/** "4/10 a les 10:30" */
 function auth_dataCurta_(d) {
-  return d.getDate() + '/' + auth_dd_(d.getMonth() + 1) +
-    ' a les ' + auth_dd_(d.getHours()) + ':' + auth_dd_(d.getMinutes());
+  return Utilities.formatDate(d, auth_fusDelFull_(), "d/MM 'a les' HH:mm");
 }
 
 /**
