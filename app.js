@@ -53,6 +53,8 @@ let state = {
   equipObert: null,  // quin dels 15 equips té obert a la subvista 'equips'
   confirmant: false, // si s'està mostrant la pantalla de resum previ a l'enviament
   equipUsuariObert: null, // quin equip d'un altre usuari està desplegat a Classificació
+  classif: null,          // resposta de ?action=classificacio, mentre s'està a la vista
+  classifVista: 'general',// 'general' | 'jornada'
 };
 
 /* Apps Script sempre redirigeix /exec -> script.googleusercontent.com/macros/echo...
@@ -152,7 +154,12 @@ function marcaSubtitol(refrescant){
 
 async function init(){
   document.querySelectorAll('nav.bottom button').forEach(btn=>{
-    btn.addEventListener('click', () => { state.view = btn.dataset.view; render(); });
+    btn.addEventListener('click', () => {
+      // En tornar a entrar a Classificació la demanem de nou: els punts canvien.
+      if (btn.dataset.view === 'classificacio') state.classif = null;
+      state.view = btn.dataset.view;
+      render();
+    });
   });
 
   if (!CODI_ACTUAL){
@@ -241,7 +248,11 @@ function render(){
   const app = document.getElementById('app');
   if (state.view === 'meuequip') app.innerHTML = viewMeuEquip();
   else if (state.view === 'escollir') { app.innerHTML = viewEscollir(); bindEscollir(); }
-  else if (state.view === 'classificacio') { app.innerHTML = '<div class="loading">Carregant classificació…</div>'; loadClassificacio(); }
+  else if (state.view === 'classificacio'){
+    // Si ja tenim la resposta, pintem: canviar de pestanya no ha de tornar a demanar-la.
+    if (state.classif) app.innerHTML = viewClassificacio();
+    else { app.innerHTML = '<div class="loading">Carregant classificació…</div>'; loadClassificacio(); }
+  }
   else if (state.view === 'preguntes') { app.innerHTML = viewPreguntes(); bindPreguntes(); }
 }
 
@@ -465,56 +476,105 @@ async function enviarEquip(){
 }
 
 /* ---------- VISTA: CLASSIFICACIÓ ---------- */
+
+/**
+ * La darrera jornada jugada: la més alta que tingui punts. Les files de `Classificacio`
+ * existeixen per avançat fins a la jornada 10, així que no serveix agafar la més alta
+ * que hi hagi: totes les que encara no s'han jugat hi són, amb un zero.
+ */
+function ultimaJornadaJugada(perJornada){
+  const jugades = (perJornada || [])
+    .filter(r => Number(r.Punts_totals || 0) > 0)
+    .map(r => Number(r.Jornada));
+  return jugades.length ? Math.max.apply(null, jugades) : null;
+}
+
+function filesRanquing(files, clau){
+  const medalla = ['or', 'plata', 'bronze'];
+  return files.map((f, i) => `
+    <div class="rank-row">
+      <div class="rank-num ${medalla[i] || ''}">${i + 1}</div>
+      <div>${f.Usuari}</div>
+      <div class="rank-points">${Number(f[clau] || 0).toFixed(1)}</div>
+    </div>
+  `).join('');
+}
+
+function ordenaPerPunts(files, clau){
+  return files.slice().sort((a, b) => Number(b[clau] || 0) - Number(a[clau] || 0));
+}
+
 async function loadClassificacio(){
   try{
-    const resp = await apiGet('classificacio');
-    if (!resp.ok) throw new Error(resp.error);
-    const global = resp.global.slice().sort((a,b)=> Number(b.Punts_totals_acumulats||0) - Number(a.Punts_totals_acumulats||0));
-    const rows = global.map(g => `
-      <div class="rank-row">
-        <div class="rank-num"></div>
-        <div>${g.Usuari}</div>
-        <div class="rank-points">${Number(g.Punts_totals_acumulats||0).toFixed(1)}</div>
-      </div>
-    `).join('');
-
-    let equipsHtml = '';
-    if (resp.mostrarEquips && resp.equipsUsuaris){
-      const usuaris = Object.keys(resp.equipsUsuaris);
-      equipsHtml = `
-        <div class="card">
-          <h2>Equips de la jornada ${resp.jornadaMostrada}</h2>
-          ${usuaris.map(u => {
-            const jugs = ordenaPerPosicio(resp.equipsUsuaris[u]);
-            const obert = state.equipUsuariObert === u;
-            return `
-              <button class="team-chip" style="margin-bottom:8px;" onclick="state.equipUsuariObert = state.equipUsuariObert==='${u}' ? null : '${u}'; render();">
-                <span>${u}</span><span class="count">${obert ? 'amagar' : 'veure equip'}</span>
-              </button>
-              ${obert ? jugs.map(j => `
-                <div class="player-row">
-                  <div>
-                    <div class="player-name">${j.nom} ${j.capitana ? '<span class="pill">Capitana</span>' : ''}</div>
-                    <div class="player-meta">${j.equip} · ${posLabel(j.posicio)}</div>
-                  </div>
-                </div>
-              `).join('') : ''}
-            `;
-          }).join('')}
-        </div>
-      `;
-    }
-
-    document.getElementById('app').innerHTML = `
-      <div class="card">
-        <h2>Classificació general</h2>
-        ${rows || '<div class="empty">Encara no hi ha punts registrats.</div>'}
-      </div>
-      ${equipsHtml}
-    `;
+    state.classif = await apiGet('classificacio');
+    if (!state.classif.ok) throw new Error(state.classif.error);
+    render();
   } catch(err){
-    document.getElementById('app').innerHTML = `<div class="card"><div class="error-box">No s'ha pogut carregar la classificació. ${err.message}</div></div>`;
+    state.classif = null;
+    document.getElementById('app').innerHTML =
+      `<div class="card"><div class="error-box">No s'ha pogut carregar la classificació. ${err.message}</div></div>`;
   }
+}
+
+function viewClassificacio(){
+  const resp = state.classif;
+  const jornada = ultimaJornadaJugada(resp.perJornada);
+  const vista = (state.classifVista === 'jornada' && jornada) ? 'jornada' : 'general';
+
+  let titol, files;
+  if (vista === 'jornada'){
+    titol = 'Jornada ' + jornada;
+    files = ordenaPerPunts(
+      (resp.perJornada || []).filter(r => Number(r.Jornada) === jornada), 'Punts_totals');
+  } else {
+    titol = 'Classificació general';
+    files = ordenaPerPunts(resp.global || [], 'Punts_totals_acumulats');
+  }
+  const clau = vista === 'jornada' ? 'Punts_totals' : 'Punts_totals_acumulats';
+
+  // Sense cap jornada jugada no hi ha res a triar: no mostrem les pestanyes.
+  const pestanyes = jornada ? `
+    <div class="tabs-sub">
+      <button class="${vista === 'general' ? 'active' : ''}"
+              onclick="state.classifVista='general'; render();">General</button>
+      <button class="${vista === 'jornada' ? 'active' : ''}"
+              onclick="state.classifVista='jornada'; render();">Jornada ${jornada}</button>
+    </div>` : '';
+
+  let equipsHtml = '';
+  if (resp.mostrarEquips && resp.equipsUsuaris){
+    const usuaris = Object.keys(resp.equipsUsuaris);
+    equipsHtml = `
+      <div class="card">
+        <h2>Equips de la jornada ${resp.jornadaMostrada}</h2>
+        ${usuaris.map(u => {
+          const jugs = ordenaPerPosicio(resp.equipsUsuaris[u]);
+          const obert = state.equipUsuariObert === u;
+          return `
+            <button class="team-chip" style="margin-bottom:8px;" onclick="state.equipUsuariObert = state.equipUsuariObert==='${u}' ? null : '${u}'; render();">
+              <span>${u}</span><span class="count">${obert ? 'amagar' : 'veure equip'}</span>
+            </button>
+            ${obert ? jugs.map(j => `
+              <div class="player-row">
+                <div>
+                  <div class="player-name">${j.nom} ${j.capitana ? '<span class="pill">Capitana</span>' : ''}</div>
+                  <div class="player-meta">${j.equip} · ${posLabel(j.posicio)}</div>
+                </div>
+              </div>
+            `).join('') : ''}
+          `;
+        }).join('')}
+      </div>`;
+  }
+
+  // Amb pestanyes, el títol el diu la pestanya triada: repetir-lo a sota sobra.
+  return `
+    <div class="card">
+      ${pestanyes || '<h2>' + titol + '</h2>'}
+      ${filesRanquing(files, clau) || '<div class="empty">Encara no hi ha punts registrats.</div>'}
+    </div>
+    ${equipsHtml}
+  `;
 }
 
 /* ---------- VISTA: PREGUNTES ---------- */

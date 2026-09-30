@@ -16,10 +16,12 @@ body{
   color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   min-height:100vh;
-  padding-bottom:76px;
+  padding-bottom:calc(76px + env(safe-area-inset-bottom));
 }
 header.top{
-  padding:22px 20px 14px;
+  /* `viewport-fit=cover` fa que la pàgina es dibuixi sota la barra d'estat del mòbil:
+     sense aquest coixí, el títol queda tapat per l'hora o pel notch. */
+  padding:calc(18px + env(safe-area-inset-top)) 20px 14px;
   display:flex; align-items:center; gap:12px;
 }
 header.top .badge{
@@ -144,9 +146,9 @@ nav.bottom svg{ width:21px; height:21px; }
   display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
   color:var(--text-dim); flex-shrink:0;
 }
-.rank-row:nth-child(1) .rank-num{ background:#ffc94d; color:#3a2c00; }
-.rank-row:nth-child(2) .rank-num{ background:#c9c9d6; color:#2a2a35; }
-.rank-row:nth-child(3) .rank-num{ background:#cd8a5c; color:#2a1c0f; }
+.rank-num.or{ background:#ffc94d; color:#3a2c00; }
+.rank-num.plata{ background:#c9c9d6; color:#2a2a35; }
+.rank-num.bronze{ background:#cd8a5c; color:#2a1c0f; }
 .rank-points{ margin-left:auto; font-weight:800; font-size:15px; }
 
 .loading{ text-align:center; padding:40px; color:var(--text-dim); font-size:13.5px; }
