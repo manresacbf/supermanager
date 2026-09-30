@@ -309,6 +309,21 @@ migrada perquè el càlcul torni a manar. `Punts_totals` passa a ser
 | J3 | 88,6 | 81,2 | 86,6 | 90,0 | 100,2 | 108,8 | 101,2 |
 | **Total** | **191,2** | **201,8** | **180,2** | **181,4** | **186,2** | **274,2** | **212,2** |
 
+### Apuntar a mà una jornada jugada fora de l'app
+
+Serveix la mateixa columna. Per a cada participant:
+
+1. Escriu el total a **`Punts_migrats`** de la fila d'aquella jornada a `Classificacio`.
+2. Menú **`Supermanager → Reparar fórmules de puntuació`**.
+
+`Punts_totals` d'aquelles files passa a ser `=N($C)+N($D)+N($F)`. La reparació compara la
+fórmula amb el que hi ha a `Punts_migrats` i l'ajusta en els dos sentits: si després
+s'esborra el número, el total deixa de sumar-lo.
+
+⚠️ Si aquella jornada també té equips a `Equips_usuari` **i** punts a
+`Resultats_jugadores`, es comptaria dues vegades: un cop per la via de les fórmules i un
+altre pel número migrat. Una jornada o es porta per l'app, o s'apunta a mà.
+
 ### La jornada 1 del nostre full era una ronda de proves
 
 Les 63 tries desades com a jornada 1 són del 23 i 24/09/2026: la gent provant l'app, no una

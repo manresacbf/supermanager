@@ -478,7 +478,7 @@ function sd_reparaClassificacio_() {
       sh.getRange(r, 4).setFormula(sd_formulaPuntsPreguntes_(r));
       recuperades++;
     }
-    if (sd_totalTrencat_(sh, r)) {
+    if (sd_totalDesajustat_(sh, r)) {
       sh.getRange(r, 5).setFormula(sd_formulaPuntsTotals_(sh, r));
       recuperades++;
     }
@@ -487,10 +487,27 @@ function sd_reparaClassificacio_() {
   return recuperades;
 }
 
-/** `Punts_totals` sense fórmula, o en error. */
-function sd_totalTrencat_(sh, fila) {
+/**
+ * Diu si `Punts_totals` d'una fila s'ha de reescriure: perquè hi ha un número a mà,
+ * perquè està en error, o perquè la fórmula no lliga amb `Punts_migrats`.
+ *
+ * L'últim cas és el que permet apuntar a mà una jornada que s'ha jugat fora de l'app:
+ * s'escriu el total a `Punts_migrats` i s'executa "Reparar fórmules de puntuació".
+ * També funciona a l'inrevés: si s'esborra el número migrat, el total deixa de sumar-lo.
+ */
+function sd_totalDesajustat_(sh, fila) {
   const cel = sh.getRange(fila, 5);
-  return !cel.getFormula() || String(cel.getValue()).charAt(0) === '#';
+  const formula = cel.getFormula();
+  if (!formula) return true;
+  if (String(cel.getValue()).charAt(0) === '#') return true;
+
+  const cap = sd_capcalera_(sh);
+  const iMigrats = cap.indexOf('Punts_migrats');
+  if (iMigrats === -1) return false;
+
+  const teMigrats = !sd_buit_(sh.getRange(fila, iMigrats + 1).getValue());
+  const elSuma = formula.indexOf('$' + sd_lletra_(iMigrats) + fila) !== -1;
+  return teMigrats !== elSuma;
 }
 
 /**
